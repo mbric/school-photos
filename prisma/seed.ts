@@ -193,6 +193,190 @@ async function main() {
 
   console.log(`Created ${linkCount} proof links`);
 
+  // ─── Packages ──────────────────────────────────────
+  const basicPkg = await prisma.package.create({
+    data: {
+      name: "Basic Package",
+      description: "1 8x10, 2 5x7, 8 wallets",
+      price: 2500, // $25.00
+      contents: JSON.stringify([
+        { type: "print", size: "8x10", qty: 1 },
+        { type: "print", size: "5x7", qty: 2 },
+        { type: "print", size: "wallet", qty: 8 },
+      ]),
+      digital: false,
+      sortOrder: 1,
+      schoolId: lincoln.id,
+    },
+  });
+
+  const premiumPkg = await prisma.package.create({
+    data: {
+      name: "Premium Package",
+      description: "2 8x10, 4 5x7, 16 wallets + digital download",
+      price: 4500, // $45.00
+      contents: JSON.stringify([
+        { type: "print", size: "8x10", qty: 2 },
+        { type: "print", size: "5x7", qty: 4 },
+        { type: "print", size: "wallet", qty: 16 },
+        { type: "digital", size: "full-res", qty: 1 },
+      ]),
+      digital: true,
+      sortOrder: 2,
+      schoolId: lincoln.id,
+    },
+  });
+
+  const digitalPkg = await prisma.package.create({
+    data: {
+      name: "Digital Only",
+      description: "High-resolution digital download of all poses",
+      price: 1500, // $15.00
+      contents: JSON.stringify([
+        { type: "digital", size: "full-res", qty: 1 },
+      ]),
+      digital: true,
+      sortOrder: 3,
+      schoolId: lincoln.id,
+    },
+  });
+
+  console.log(`Created 3 packages for Lincoln Elementary`);
+
+  // Add payment instructions
+  await prisma.school.update({
+    where: { id: lincoln.id },
+    data: { paymentInstructions: "Venmo: @DemoPhotographer\nZelle: demo@schoolphotos.com\nPlease include student name in memo." },
+  });
+
+  // ─── Sample Orders ─────────────────────────────────
+  // Paid card order
+  const order1 = await prisma.order.create({
+    data: {
+      orderNumber: "SP-2026-0001",
+      status: "paid",
+      source: "online",
+      totalAmount: 4500,
+      parentName: "Sarah Smith",
+      parentEmail: "smith.family@email.com",
+      stripePaymentId: "pi_demo_001",
+      eventId: event.id,
+      items: {
+        create: [
+          { packageId: premiumPkg.id, studentId: allStudents[0].id, quantity: 1, unitPrice: 4500 },
+        ],
+      },
+    },
+  });
+
+  // Paid card order for sibling
+  const order2 = await prisma.order.create({
+    data: {
+      orderNumber: "SP-2026-0002",
+      status: "paid",
+      source: "online",
+      totalAmount: 2500,
+      parentName: "Sarah Smith",
+      parentEmail: "smith.family@email.com",
+      stripePaymentId: "pi_demo_002",
+      eventId: event.id,
+      items: {
+        create: [
+          { packageId: basicPkg.id, studentId: allStudents[1].id, quantity: 1, unitPrice: 2500 },
+        ],
+      },
+    },
+  });
+
+  // Venmo order awaiting payment
+  const order3 = await prisma.order.create({
+    data: {
+      orderNumber: "SP-2026-0003",
+      status: "awaiting_payment",
+      source: "online",
+      totalAmount: 2500,
+      parentName: "Maria Garcia",
+      parentEmail: "garcia@email.com",
+      eventId: event.id,
+      items: {
+        create: [
+          { packageId: basicPkg.id, studentId: allStudents[6].id, quantity: 1, unitPrice: 2500 },
+        ],
+      },
+    },
+  });
+
+  // Paper order entered by photographer
+  const order4 = await prisma.order.create({
+    data: {
+      orderNumber: "SP-2026-0004",
+      status: "paid",
+      source: "paper",
+      totalAmount: 4000,
+      parentName: "Tom Williams",
+      parentEmail: "williams@email.com",
+      notes: "Paid by check #1234",
+      eventId: event.id,
+      items: {
+        create: [
+          { packageId: basicPkg.id, studentId: allStudents[3].id, quantity: 1, unitPrice: 2500 },
+          { packageId: digitalPkg.id, studentId: allStudents[3].id, quantity: 1, unitPrice: 1500 },
+        ],
+      },
+    },
+  });
+
+  // Sent to lab
+  const order5 = await prisma.order.create({
+    data: {
+      orderNumber: "SP-2026-0005",
+      status: "sent_to_lab",
+      source: "online",
+      totalAmount: 4500,
+      parentName: "Jennifer Davis",
+      parentEmail: "davis.family@email.com",
+      stripePaymentId: "pi_demo_005",
+      eventId: event.id,
+      items: {
+        create: [
+          { packageId: premiumPkg.id, studentId: allStudents[8].id, quantity: 1, unitPrice: 4500 },
+        ],
+      },
+    },
+  });
+
+  console.log(`Created 5 sample orders (total: $${((4500+2500+2500+4000+4500)/100).toFixed(2)})`);
+
+  // ─── Washington School (minimal data) ──────────────
+  const washStudents = [
+    { firstName: "Mason", lastName: "Anderson", grade: "6", teacher: "Mr. Harris", studentId: "WS-001", parentEmail: "anderson@email.com" },
+    { firstName: "Charlotte", lastName: "Thomas", grade: "6", teacher: "Mr. Harris", studentId: "WS-002", parentEmail: "thomas@email.com" },
+    { firstName: "Ethan", lastName: "Jackson", grade: "7", teacher: "Ms. White", studentId: "WS-003", parentEmail: "jackson@email.com" },
+    { firstName: "Amelia", lastName: "White", grade: "7", teacher: "Ms. White", studentId: "WS-004", parentEmail: "white@email.com" },
+    { firstName: "Alexander", lastName: "Harris", grade: "8", teacher: "Mr. Lee", studentId: "WS-005", parentEmail: "harris@email.com" },
+  ];
+
+  for (const student of washStudents) {
+    await prisma.student.create({
+      data: { ...student, schoolId: washington.id },
+    });
+  }
+
+  // Future event for Washington
+  await prisma.event.create({
+    data: {
+      type: "initial",
+      date: new Date("2026-05-01"),
+      startTime: "09:00",
+      notes: "Spring pictures in the cafeteria",
+      status: "scheduled",
+      schoolId: washington.id,
+      photographerId: photographer.id,
+    },
+  });
+
+  console.log(`Created ${washStudents.length} students and 1 event for Washington Middle School`);
+
   console.log("\n--- Seed complete ---");
   console.log("Login: demo@schoolphotos.com / password123");
 }

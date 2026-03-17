@@ -9,6 +9,7 @@ const updateSchema = z.object({
   contactName: z.string().optional(),
   contactEmail: z.string().email().optional().or(z.literal("")),
   contactPhone: z.string().optional(),
+  paymentInstructions: z.string().optional(),
 });
 
 async function getSchoolForUser(schoolId: string, userId: string) {

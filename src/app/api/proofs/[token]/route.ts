@@ -96,6 +96,7 @@ export async function GET(
 
   return NextResponse.json({
     schoolName: proofLink.event.school.name,
+    eventId: proofLink.eventId,
     studentGroups: Object.values(studentGroups),
     isFamily: !!proofLink.familyId,
   });

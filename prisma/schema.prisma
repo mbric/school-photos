@@ -25,14 +25,15 @@ model User {
 // ─── School & Roster ──────────────────────────────────
 
 model School {
-  id           String  @id @default(cuid())
-  name         String
-  address      String?
-  contactName  String?
-  contactEmail String?
-  contactPhone String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String  @id @default(cuid())
+  name                String
+  address             String?
+  contactName         String?
+  contactEmail        String?
+  contactPhone        String?
+  paymentInstructions String? // e.g. "Venmo: @JaneDoePhotos" or "Zelle: jane@email.com"
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   photographerId String
   photographer   User   @relation(fields: [photographerId], references: [id])

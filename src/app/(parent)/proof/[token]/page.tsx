@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Camera, Lock, Heart, ChevronLeft, ChevronRight, X } from "lucide-react";
+import Link from "next/link";
+import { Camera, Lock, Heart, ChevronLeft, ChevronRight, X, ShoppingCart } from "lucide-react";
 
 interface Photo {
   id: string;
@@ -130,18 +131,22 @@ export default function ProofGalleryPage() {
             <p className="text-sm text-gray-500 mt-1">Enter your access code to view proofs</p>
           </div>
           <div className="space-y-4">
+            <label htmlFor="access-code" className="sr-only">Access code</label>
             <input
+              id="access-code"
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitCode()}
               placeholder="Access code"
+              aria-describedby={codeError ? "code-error" : undefined}
+              aria-invalid={codeError}
               className="w-full px-4 py-3 border rounded-lg text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500"
               maxLength={6}
               autoFocus
             />
             {codeError && (
-              <p className="text-sm text-red-500 text-center">Invalid access code</p>
+              <p id="code-error" role="alert" className="text-sm text-red-500 text-center">Invalid access code</p>
             )}
             <button
               onClick={submitCode}
@@ -167,7 +172,13 @@ export default function ProofGalleryPage() {
               <h1 className="text-xl font-bold">{data.schoolName}</h1>
               <p className="text-sm text-gray-500">Picture Day Proofs</p>
             </div>
-            <Camera className="h-6 w-6 text-gray-400" />
+            <Link
+              href={`/proof/${token}/order`}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              Order Photos
+            </Link>
           </div>
         </div>
       </header>
@@ -212,6 +223,8 @@ export default function ProofGalleryPage() {
                               e.stopPropagation();
                               toggleSelect(name, photo.id);
                             }}
+                            aria-label={isSelected ? `Deselect pose ${photo.sequence || idx + 1} for ${name}` : `Select pose ${photo.sequence || idx + 1} for ${name}`}
+                            aria-pressed={isSelected}
                             className={`p-1.5 rounded-full transition-colors ${
                               isSelected
                                 ? "bg-blue-500 text-white"
@@ -253,10 +266,27 @@ export default function ProofGalleryPage() {
 
       {/* Lightbox */}
       {lightbox && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-label="Photo viewer"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setLightbox(null);
+            if (e.key === "ArrowLeft")
+              setLightbox((prev) =>
+                prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null
+              );
+            if (e.key === "ArrowRight")
+              setLightbox((prev) =>
+                prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null
+              );
+          }}
+          tabIndex={0}
+        >
           <button
             onClick={() => setLightbox(null)}
             className="absolute top-4 right-4 text-white p-2 hover:bg-white/10 rounded-full"
+            aria-label="Close photo viewer"
           >
             <X className="h-6 w-6" />
           </button>
@@ -273,12 +303,13 @@ export default function ProofGalleryPage() {
               )
             }
             className="absolute left-4 text-white p-2 hover:bg-white/10 rounded-full"
+            aria-label="Previous photo"
           >
             <ChevronLeft className="h-8 w-8" />
           </button>
           <img
             src={lightbox.photos[lightbox.index].url}
-            alt="Full size"
+            alt={`Photo ${lightbox.index + 1} of ${lightbox.photos.length}`}
             className="max-h-[90vh] max-w-[90vw] object-contain"
           />
           <button
@@ -293,10 +324,11 @@ export default function ProofGalleryPage() {
               )
             }
             className="absolute right-4 text-white p-2 hover:bg-white/10 rounded-full"
+            aria-label="Next photo"
           >
             <ChevronRight className="h-8 w-8" />
           </button>
-          <div className="absolute bottom-4 text-white text-sm">
+          <div className="absolute bottom-4 text-white text-sm" aria-live="polite">
             {lightbox.index + 1} / {lightbox.photos.length}
           </div>
         </div>
