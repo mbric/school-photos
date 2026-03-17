@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("photographer") // photographer | helper
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schools School[]
+  events  Event[]
+}
+
+// ─── School & Roster ──────────────────────────────────
+
+model School {
+  id           String  @id @default(cuid())
+  name         String
+  address      String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  photographerId String
+  photographer   User   @relation(fields: [photographerId], references: [id])
+
+  students Student[]
+  events   Event[]
+  packages Package[]
+}
+
+model Student {
+  id          String  @id @default(cuid())
+  firstName   String
+  lastName    String
+  grade       String
+  teacher     String?
+  studentId   String?
+  parentEmail String?
+  familyId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  checkIns     CheckIn[]
+  checkInLogs  CheckInLog[]
+  photos       Photo[]
+  proofLinks   ProofLink[]
+  orderItems   OrderItem[]
+
+  @@index([schoolId, grade, teacher])
+  @@index([familyId])
+  @@index([studentId, schoolId])
+}
+
+// ─── Picture Day Events ───────────────────────────────
+
+model Event {
+  id              String   @id @default(cuid())
+  type            String   @default("initial") // initial | retake
+  date            DateTime
+  startTime       String?
+  notes           String?
+  classOrder      String?  // JSON string
+  status          String   @default("scheduled") // scheduled | in_progress | completed
+  posesPerStudent Int      @default(1)
+  matchingMethod  String   @default("sequence") // sequence | qr | filename
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  schoolId       String
+  school         School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  photographerId String
+  photographer   User   @relation(fields: [photographerId], references: [id])
+
+  checkIns     CheckIn[]
+  checkInLogs  CheckInLog[]
+  photos       Photo[]
+  proofLinks   ProofLink[]
+  orders       Order[]
+
+  @@index([schoolId])
+  @@index([date])
+}
+
+// ─── Shoot Day ────────────────────────────────────────
+
+model CheckIn {
+  id          String    @id @default(cuid())
+  status      String    @default("pending") // pending | photographed | absent | retake
+  sequence    Int?
+  notes       String?
+  checkedInAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  logs CheckInLog[]
+
+  @@unique([studentId, eventId])
+  @@index([eventId, status])
+}
+
+model CheckInLog {
+  id        String   @id @default(cuid())
+  action    String   // photographed | absent | retake | pending (reset)
+  sequence  Int?     // sequence number assigned (only for photographed)
+  timestamp DateTime @default(now())
+
+  checkInId String
+  checkIn   CheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, timestamp])
+  @@index([checkInId])
+}
+
+// ─── Photos ───────────────────────────────────────────
+
+model Photo {
+  id            String  @id @default(cuid())
+  filename      String
+  storagePath   String
+  thumbnailPath String?
+  mimeType      String  @default("image/jpeg")
+  fileSize      Int?
+  sequence      Int?
+  poseNumber    Int?
+  isQrSeparator Boolean @default(false)
+  matched       Boolean @default(false)
+  flagged       Boolean @default(false)
+  flagReason    String?
+  createdAt     DateTime @default(now())
+
+  eventId   String
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id])
+
+  orderItems OrderItem[]
+
+  @@index([eventId, matched])
+  @@index([studentId])
+}
+
+// ─── Proofs ───────────────────────────────────────────
+
+model ProofLink {
+  id           String    @id @default(cuid())
+  token        String    @unique
+  accessCode   String?
+  familyId     String?
+  expiresAt    DateTime?
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
+  emailSentAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  eventId   String
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id])
+
+  @@index([token])
+  @@index([eventId])
+}
+
+// ─── Orders & Packages ────────────────────────────────
+
+model Package {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  price       Int     // cents
+  contents    String  // JSON
+  digital     Boolean @default(false)
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+  createdAt   DateTime @default(now())
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  orderItems OrderItem[]
+}
+
+model Order {
+  id              String  @id @default(cuid())
+  orderNumber     String  @unique
+  status          String  @default("pending") // pending | paid | sent_to_lab | printed | delivered
+  source          String  @default("online") // online | paper
+  totalAmount     Int     // cents
+  stripePaymentId String?
+  parentEmail     String?
+  parentName      String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  eventId String
+  event   Event @relation(fields: [eventId], references: [id])
+
+  items     OrderItem[]
+  downloads DigitalDownload[]
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  quantity  Int    @default(1)
+  unitPrice Int    // cents
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id])
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+  photoId   String?
+  photo     Photo?  @relation(fields: [photoId], references: [id])
+}
+
+model DigitalDownload {
+  id           String    @id @default(cuid())
+  token        String    @unique
+  downloadUrl  String?
+  expiresAt    DateTime
+  downloadedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  orderId String
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
