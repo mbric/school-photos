@@ -20,6 +20,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@flydotio/litestream": "^1.0.1",
     "@prisma/client": "^6.19.2",
     "@types/qrcode": "^1.5.6",
     "bcryptjs": "^3.0.3",
@@ -41,6 +42,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.10",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.5.0",
@@ -54,5 +56,8 @@
     "tailwindcss": "^3.4.19",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
+  },
+  "dockerfile": {
+    "litestream": true
   }
 }

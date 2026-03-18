@@ -1,0 +1,31 @@
+# fly.toml app configuration file generated for school-photos-mb on 2026-03-17T19:34:11-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'shutterday'
+primary_region = 'ord'
+
+[build]
+
+[env]
+  DATABASE_URL = 'file:/data/school-photos.db'
+  NEXT_PUBLIC_APP_URL = 'https://shutterday.fly.dev'
+  NODE_ENV = 'production'
+  STORAGE_LOCAL_PATH = '/data/photos'
+  STORAGE_PROVIDER = 'local'
+
+[[mounts]]
+  source = 'data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'

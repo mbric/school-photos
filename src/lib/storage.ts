@@ -11,7 +11,7 @@ class LocalStorageProvider implements StorageProvider {
   private basePath: string;
 
   constructor() {
-    this.basePath = path.join(process.cwd(), "uploads");
+    this.basePath = process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), "uploads");
   }
 
   async upload(file: Buffer, filename: string, eventId: string) {
