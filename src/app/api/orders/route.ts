@@ -32,14 +32,13 @@ export async function GET(request: NextRequest) {
   const schoolId = searchParams.get("schoolId");
   const search = searchParams.get("search");
 
-  // Build filter: only orders for events owned by this photographer
   const where: Record<string, unknown> = {
-    event: { photographerId: session.userId },
+    event: { school: { organizationId: session.organizationId ?? undefined } },
   };
 
   if (status) where.status = status;
   if (eventId) where.eventId = eventId;
-  if (schoolId) where.event = { ...where.event as object, schoolId };
+  if (schoolId) where.event = { ...(where.event as object), schoolId };
   if (search) {
     where.OR = [
       { orderNumber: { contains: search } },
@@ -99,9 +98,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify photographer owns this event
+  // Verify event belongs to this org
   const event = await prisma.event.findFirst({
-    where: { id: parsed.data.eventId, photographerId: session.userId },
+    where: { id: parsed.data.eventId, school: { organizationId: session.organizationId ?? undefined } },
   });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });

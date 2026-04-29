@@ -8,6 +8,7 @@ import {
   Calendar,
   ShoppingCart,
   BarChart3,
+  Kanban,
   LogOut,
   Menu,
   X,
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/orders", label: "Orders", icon: ShoppingCart },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin/tasks", label: "Tasks", icon: Kanban },
 ];
 
 export function Sidebar({ user }: SidebarProps) {

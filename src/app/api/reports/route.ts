@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   const schools = await prisma.school.findMany({
-    where: { photographerId: session.userId },
+    where: { organizationId: session.organizationId ?? undefined },
     include: {
       events: {
         include: {

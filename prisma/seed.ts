@@ -5,26 +5,51 @@ import crypto from "crypto";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create photographer user
   const passwordHash = await bcrypt.hash("password123", 12);
 
-  const photographer = await prisma.user.upsert({
-    where: { email: "demo@schoolphotos.com" },
-    update: {},
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = prisma as any;
+
+  // Create organization
+  const org = await db.organization.upsert({
+    where: { id: "org-brickner" },
+    update: { name: "Brickner Photography" },
+    create: { id: "org-brickner", name: "Brickner Photography" },
+  });
+
+  console.log(`Created organization: ${org.name}`);
+
+  // Create admin users
+  const matt = await db.user.upsert({
+    where: { email: "matt@schoolphotos.com" },
+    update: { organizationId: org.id },
     create: {
-      email: "demo@schoolphotos.com",
-      name: "Demo Photographer",
+      email: "matt@schoolphotos.com",
+      name: "Matt",
       passwordHash,
       role: "photographer",
+      organizationId: org.id,
     },
   });
 
-  console.log(`Created user: ${photographer.email}`);
+  const megan = await db.user.upsert({
+    where: { email: "megan@schoolphotos.com" },
+    update: { organizationId: org.id },
+    create: {
+      email: "megan@schoolphotos.com",
+      name: "Megan",
+      passwordHash,
+      role: "photographer",
+      organizationId: org.id,
+    },
+  });
+
+  console.log(`Created admin users: ${matt.email}, ${megan.email}`);
 
   // Create sample schools
-  const lincoln = await prisma.school.upsert({
+  const lincoln = await db.school.upsert({
     where: { id: "school-lincoln" },
-    update: {},
+    update: { organizationId: org.id },
     create: {
       id: "school-lincoln",
       name: "Lincoln Elementary",
@@ -32,13 +57,13 @@ async function main() {
       contactName: "Ms. Johnson",
       contactEmail: "johnson@lincoln.edu",
       contactPhone: "(555) 123-4567",
-      photographerId: photographer.id,
+      organizationId: org.id,
     },
   });
 
-  const washington = await prisma.school.upsert({
+  const washington = await db.school.upsert({
     where: { id: "school-washington" },
-    update: {},
+    update: { organizationId: org.id },
     create: {
       id: "school-washington",
       name: "Washington Middle School",
@@ -46,11 +71,17 @@ async function main() {
       contactName: "Mr. Davis",
       contactEmail: "davis@washington.edu",
       contactPhone: "(555) 987-6543",
-      photographerId: photographer.id,
+      organizationId: org.id,
     },
   });
 
   console.log(`Created schools: ${lincoln.name}, ${washington.name}`);
+
+  // Idempotent: clear existing school data before recreating
+  const schoolIds = [lincoln.id, washington.id];
+  await prisma.order.deleteMany({ where: { event: { schoolId: { in: schoolIds } } } });
+  await prisma.event.deleteMany({ where: { schoolId: { in: schoolIds } } });
+  await prisma.student.deleteMany({ where: { schoolId: { in: schoolIds } } });
 
   // Create students for Lincoln Elementary
   const lincolnStudents = [
@@ -89,7 +120,7 @@ async function main() {
       ]),
       status: "scheduled",
       schoolId: lincoln.id,
-      photographerId: photographer.id,
+      photographerId: megan.id,
     },
   });
 
@@ -371,14 +402,48 @@ async function main() {
       notes: "Spring pictures in the cafeteria",
       status: "scheduled",
       schoolId: washington.id,
-      photographerId: photographer.id,
+      photographerId: megan.id,
     },
   });
 
   console.log(`Created ${washStudents.length} students and 1 event for Washington Middle School`);
 
+  // ─── Kanban Tasks ──────────────────────────────────
+  await prisma.task.deleteMany();
+
+  type TaskSeed = { title: string; description: string | null; status: "TODO" | "IN_PROGRESS" | "DONE"; priority: "P1" | "P2" | "P3"; assigneeId: string; shared: boolean; sortOrder?: number };
+  const taskDefs: TaskSeed[] = [
+    // Do Now
+    { title: "Platform walkthrough together", description: "Matt demos ShutterDay end-to-end. Megan takes notes on what works, what's confusing, what's missing.", status: "TODO", priority: "P1", assigneeId: matt.id, shared: true },
+    { title: "Validate workflows & log gaps", description: "Walk through as a photographer would. Upload photos, test parent ordering flow. Document every issue.", status: "TODO", priority: "P1", assigneeId: megan.id, shared: false },
+    { title: "Reach out to mentor", description: "Casual ask - borrow equipment for a sample portrait session. Not the full pitch yet.", status: "TODO", priority: "P1", assigneeId: megan.id, shared: false },
+    { title: "Confirm Goddard date with Whitney", description: "Quick text/email to lock in when they want to see the presentation. Drives everything else.", status: "TODO", priority: "P1", assigneeId: megan.id, shared: false },
+    // Up Next
+    { title: "Sample portrait shoot", description: "Use mentor's equipment. Shoot high-quality school-style portraits for the Goddard deck and portfolio.", status: "IN_PROGRESS", priority: "P2", assigneeId: megan.id, shared: false },
+    { title: "Fix priority platform gaps", description: "Address top issues from Megan's review. Focus on what's needed for a live demo.", status: "IN_PROGRESS", priority: "P2", assigneeId: matt.id, shared: false },
+    { title: "Draft Goddard services deck", description: "Who we are, what we offer, sample photos, platform demo walkthrough, pricing.", status: "IN_PROGRESS", priority: "P2", assigneeId: matt.id, shared: true },
+    { title: "Define pricing & packages", description: "What does a daycare photo package look like? Per-student pricing, school pricing, bundles.", status: "IN_PROGRESS", priority: "P2", assigneeId: matt.id, shared: true },
+    { title: "Curate portfolio", description: "Select best sample portraits. Format for both the deck and a standalone portfolio page.", status: "IN_PROGRESS", priority: "P2", assigneeId: megan.id, shared: false },
+    // Later
+    { title: "Add demo + photos to Goddard deck", description: "Integrate platform walkthrough and sample portraits into the presentation.", status: "DONE", priority: "P2", assigneeId: matt.id, shared: false },
+    { title: "Build mentor pitch", description: "Decide what we're asking: training, partnership, equipment? Include platform demo.", status: "DONE", priority: "P2", assigneeId: matt.id, shared: true },
+    { title: "End-to-end platform test", description: "Full run: upload, gallery, parent order, payment, delivery. Both of you, real scenario.", status: "DONE", priority: "P3", assigneeId: matt.id, shared: true },
+    { title: "Rehearse & present to Goddard", description: "Practice run first, then the real thing with Whitney.", status: "DONE", priority: "P3", assigneeId: matt.id, shared: true },
+    { title: "Equipment list & budget", description: "Based on mentor's setup, what do we need to buy to be self-sufficient?", status: "DONE", priority: "P3", assigneeId: megan.id, shared: false },
+  ];
+
+  const sortCounters: Record<string, number> = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
+  for (const task of taskDefs) {
+    const sortOrder = sortCounters[task.status]++;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await prisma.task.create({ data: { ...task, sortOrder } as any });
+  }
+
+  console.log(`Created ${taskDefs.length} kanban tasks`);
+
   console.log("\n--- Seed complete ---");
-  console.log("Login: demo@schoolphotos.com / password123");
+  console.log("Matt:  matt@schoolphotos.com / password123");
+  console.log("Megan: megan@schoolphotos.com / password123");
 }
 
 main()

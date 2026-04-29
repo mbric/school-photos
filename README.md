@@ -70,6 +70,43 @@ STRIPE_WEBHOOK_SECRET=""
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=""
 ```
 
+## Common Operations
+
+### Local development
+
+```bash
+npm run dev         # Start dev server at http://localhost:3000
+npm run db:seed     # Seed local DB with demo data
+npm run db:studio   # Open Prisma Studio
+```
+
+### Reset and reseed the production DB
+
+This wipes all data on the Fly.io volume and reseeds from scratch:
+
+```bash
+fly ssh console -a shutterday -C "sh -c 'rm -f /data/school-photos.db && cd /app && DATABASE_URL=file:/data/school-photos.db npx prisma migrate deploy && DATABASE_URL=file:/data/school-photos.db npx tsx prisma/seed.ts'"
+```
+
+### Demo account (after seeding)
+
+| Field    | Value                   |
+|----------|-------------------------|
+| Email    | `demo@schoolphotos.com` |
+| Password | `password123`           |
+
+### Tail production logs
+
+```bash
+fly logs -a shutterday
+```
+
+### SSH into the production machine
+
+```bash
+fly ssh console -a shutterday
+```
+
 ## Deployment (Fly.io)
 
 The app is configured for Fly.io with a Dockerfile and `fly.toml`. SQLite and photo uploads are stored on a persistent volume mounted at `/data`.

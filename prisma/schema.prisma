@@ -9,6 +9,15 @@ datasource db {
 
 // ─── Auth ─────────────────────────────────────────────
 
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users   User[]
+  schools School[]
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -18,8 +27,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   schools School[]
   events  Event[]
+  tasks   Task[]
 }
 
 // ─── School & Roster ──────────────────────────────────
@@ -35,8 +48,10 @@ model School {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  photographerId String
-  photographer   User   @relation(fields: [photographerId], references: [id])
+  photographerId String?
+  photographer   User?        @relation(fields: [photographerId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   students Student[]
   events   Event[]
@@ -252,4 +267,38 @@ model DigitalDownload {
 
   orderId String
   order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ─── Internal Task Board ──────────────────────────────
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  P1
+  P2
+  P3
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(P3)
+  shared      Boolean      @default(false)
+  sortOrder   Int          @default(0)
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  assigneeId  String?
+  assignee    User?        @relation(fields: [assigneeId], references: [id])
+
+  @@index([status, sortOrder])
+  @@index([assigneeId])
+  @@index([completedAt])
 }

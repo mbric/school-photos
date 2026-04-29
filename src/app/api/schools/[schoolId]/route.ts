@@ -12,9 +12,9 @@ const updateSchema = z.object({
   paymentInstructions: z.string().optional(),
 });
 
-async function getSchoolForUser(schoolId: string, userId: string) {
+async function getSchoolForSession(schoolId: string, organizationId: string | null) {
   return prisma.school.findFirst({
-    where: { id: schoolId, photographerId: userId },
+    where: { id: schoolId, organizationId: organizationId ?? undefined },
   });
 }
 
@@ -28,7 +28,7 @@ export async function GET(
   }
 
   const school = await prisma.school.findFirst({
-    where: { id: params.schoolId, photographerId: session.userId },
+    where: { id: params.schoolId, organizationId: session.organizationId ?? undefined },
     include: {
       _count: { select: { students: true, events: true } },
     },
@@ -50,7 +50,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await getSchoolForUser(params.schoolId, session.userId);
+  const existing = await getSchoolForSession(params.schoolId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "School not found" }, { status: 404 });
   }
@@ -85,7 +85,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await getSchoolForUser(params.schoolId, session.userId);
+  const existing = await getSchoolForSession(params.schoolId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "School not found" }, { status: 404 });
   }

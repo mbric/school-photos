@@ -13,11 +13,11 @@ const updateSchema = z.object({
   familyId: z.string().nullable().optional(),
 });
 
-async function verifyStudentAccess(studentId: string, userId: string) {
+async function verifyStudentAccess(studentId: string, organizationId: string | null) {
   return prisma.student.findFirst({
     where: {
       id: studentId,
-      school: { photographerId: userId },
+      school: { organizationId: organizationId ?? undefined },
     },
   });
 }
@@ -31,7 +31,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await verifyStudentAccess(params.studentId, session.userId);
+  const existing = await verifyStudentAccess(params.studentId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Student not found" }, { status: 404 });
   }
@@ -66,7 +66,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await verifyStudentAccess(params.studentId, session.userId);
+  const existing = await verifyStudentAccess(params.studentId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Student not found" }, { status: 404 });
   }

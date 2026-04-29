@@ -26,7 +26,7 @@ export async function POST(
   }
 
   const school = await prisma.school.findFirst({
-    where: { id: params.schoolId, photographerId: session.userId },
+    where: { id: params.schoolId, organizationId: session.organizationId ?? undefined },
   });
   if (!school) {
     return NextResponse.json({ error: "School not found" }, { status: 404 });

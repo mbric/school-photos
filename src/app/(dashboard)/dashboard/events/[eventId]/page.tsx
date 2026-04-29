@@ -189,6 +189,7 @@ export default function EventDetailPage() {
               month: "short",
               day: "numeric",
               year: "numeric",
+              timeZone: "UTC",
             })}
           </span>
           {event.startTime && (
@@ -496,7 +497,7 @@ function ShotList({
         <div ref={printRef}>
           <h1>{schoolName} — Picture Day Shot List</h1>
           <p className="meta">
-            {date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            {date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}
           </p>
 
           {classOrder.map((group) => {

@@ -4,9 +4,9 @@ import { getSession } from "@/lib/auth";
 import { getStorage } from "@/lib/storage";
 import { autoMatchPhotos } from "@/lib/matching";
 
-async function verifyEventAccess(eventId: string, userId: string) {
+async function verifyEventAccess(eventId: string, organizationId: string | null) {
   return prisma.event.findFirst({
-    where: { id: eventId, photographerId: userId },
+    where: { id: eventId, school: { organizationId: organizationId ?? undefined } },
   });
 }
 
@@ -19,7 +19,7 @@ export async function GET(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const event = await verifyEventAccess(params.eventId, session.userId);
+  const event = await verifyEventAccess(params.eventId, session.organizationId);
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
@@ -93,7 +93,7 @@ export async function POST(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const event = await verifyEventAccess(params.eventId, session.userId);
+  const event = await verifyEventAccess(params.eventId, session.organizationId);
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }

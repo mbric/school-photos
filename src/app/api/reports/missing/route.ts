@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   const event = await prisma.event.findFirst({
-    where: { id: eventId, photographerId: session.userId },
+    where: { id: eventId, school: { organizationId: session.organizationId ?? undefined } },
     select: { schoolId: true },
   });
 

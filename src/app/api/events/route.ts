@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const schoolId = searchParams.get("schoolId");
 
-  const where: Record<string, unknown> = { photographerId: session.userId };
+  const where: Record<string, unknown> = {
+    school: { organizationId: session.organizationId ?? undefined },
+  };
   if (schoolId) where.schoolId = schoolId;
 
   const events = await prisma.event.findMany({
@@ -52,9 +54,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify school ownership
+  // Verify school belongs to this org
   const school = await prisma.school.findFirst({
-    where: { id: parsed.data.schoolId, photographerId: session.userId },
+    where: { id: parsed.data.schoolId, organizationId: session.organizationId ?? undefined },
   });
   if (!school) {
     return NextResponse.json({ error: "School not found" }, { status: 404 });

@@ -28,15 +28,15 @@ export default async function DashboardPage() {
     unmatchedPhotoCount,
     totalRevenue,
   ] = await Promise.all([
-    prisma.school.count({ where: { photographerId: user.id } }),
+    prisma.school.count({ where: { organizationId: user.organizationId ?? undefined } }),
     prisma.event.findMany({
-      where: { photographerId: user.id, date: { gte: now } },
+      where: { school: { organizationId: user.organizationId ?? undefined }, date: { gte: now } },
       include: { school: { select: { name: true } } },
       orderBy: { date: "asc" },
       take: 5,
     }),
     prisma.order.findMany({
-      where: { event: { photographerId: user.id } },
+      where: { event: { school: { organizationId: user.organizationId ?? undefined } } },
       include: {
         event: { select: { school: { select: { name: true } } } },
         _count: { select: { items: true } },
@@ -45,17 +45,17 @@ export default async function DashboardPage() {
       take: 5,
     }),
     prisma.order.count({
-      where: { event: { photographerId: user.id }, status: "pending" },
+      where: { event: { school: { organizationId: user.organizationId ?? undefined } }, status: "pending" },
     }),
     prisma.order.count({
-      where: { event: { photographerId: user.id }, status: "awaiting_payment" },
+      where: { event: { school: { organizationId: user.organizationId ?? undefined } }, status: "awaiting_payment" },
     }),
     prisma.photo.count({
-      where: { event: { photographerId: user.id }, matched: false, isQrSeparator: false },
+      where: { event: { school: { organizationId: user.organizationId ?? undefined } }, matched: false, isQrSeparator: false },
     }),
     prisma.order.aggregate({
       where: {
-        event: { photographerId: user.id },
+        event: { school: { organizationId: user.organizationId ?? undefined } },
         status: { notIn: ["pending", "awaiting_payment"] },
       },
       _sum: { totalAmount: true },
@@ -89,6 +89,7 @@ export default async function DashboardPage() {
       weekday: "short",
       month: "short",
       day: "numeric",
+      timeZone: "UTC",
     });
   }
 

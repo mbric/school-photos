@@ -13,9 +13,9 @@ const updateSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
-async function verifyPackageAccess(schoolId: string, packageId: string, userId: string) {
+async function verifyPackageAccess(schoolId: string, packageId: string, organizationId: string | null) {
   const school = await prisma.school.findFirst({
-    where: { id: schoolId, photographerId: userId },
+    where: { id: schoolId, organizationId: organizationId ?? undefined },
   });
   if (!school) return null;
 
@@ -33,7 +33,7 @@ export async function GET(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const pkg = await verifyPackageAccess(params.schoolId, params.packageId, session.userId);
+  const pkg = await verifyPackageAccess(params.schoolId, params.packageId, session.organizationId);
   if (!pkg) {
     return NextResponse.json({ error: "Package not found" }, { status: 404 });
   }
@@ -50,7 +50,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await verifyPackageAccess(params.schoolId, params.packageId, session.userId);
+  const existing = await verifyPackageAccess(params.schoolId, params.packageId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Package not found" }, { status: 404 });
   }
@@ -82,7 +82,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await verifyPackageAccess(params.schoolId, params.packageId, session.userId);
+  const existing = await verifyPackageAccess(params.schoolId, params.packageId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Package not found" }, { status: 404 });
   }

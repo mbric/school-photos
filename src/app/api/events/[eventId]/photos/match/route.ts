@@ -13,7 +13,7 @@ export async function POST(
   }
 
   const event = await prisma.event.findFirst({
-    where: { id: params.eventId, photographerId: session.userId },
+    where: { id: params.eventId, school: { organizationId: session.organizationId ?? undefined } },
   });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });

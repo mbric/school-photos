@@ -3,9 +3,9 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { randomBytes } from "crypto";
 
-async function verifySchoolAccess(schoolId: string, userId: string) {
+async function verifySchoolAccess(schoolId: string, organizationId: string | null) {
   return prisma.school.findFirst({
-    where: { id: schoolId, photographerId: userId },
+    where: { id: schoolId, organizationId: organizationId ?? undefined },
   });
 }
 
@@ -19,7 +19,7 @@ export async function POST(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const school = await verifySchoolAccess(params.schoolId, session.userId);
+  const school = await verifySchoolAccess(params.schoolId, session.organizationId);
   if (!school) {
     return NextResponse.json({ error: "School not found" }, { status: 404 });
   }

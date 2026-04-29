@@ -11,11 +11,11 @@ const updateSchema = z.object({
   notes: z.string().optional(),
 });
 
-async function verifyOrderAccess(orderId: string, userId: string) {
+async function verifyOrderAccess(orderId: string, organizationId: string | null) {
   return prisma.order.findFirst({
     where: {
       id: orderId,
-      event: { photographerId: userId },
+      event: { school: { organizationId: organizationId ?? undefined } },
     },
     include: {
       event: {
@@ -46,7 +46,7 @@ export async function GET(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const order = await verifyOrderAccess(params.orderId, session.userId);
+  const order = await verifyOrderAccess(params.orderId, session.organizationId);
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
@@ -63,7 +63,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await verifyOrderAccess(params.orderId, session.userId);
+  const existing = await verifyOrderAccess(params.orderId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
@@ -109,7 +109,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await verifyOrderAccess(params.orderId, session.userId);
+  const existing = await verifyOrderAccess(params.orderId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }

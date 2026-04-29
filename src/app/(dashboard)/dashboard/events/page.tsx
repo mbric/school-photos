@@ -168,6 +168,7 @@ function EventCard({ event, onDelete }: { event: EventItem; onDelete: () => void
               month: "short",
               day: "numeric",
               year: "numeric",
+              timeZone: "UTC",
             })}
           </div>
           {event.startTime && (

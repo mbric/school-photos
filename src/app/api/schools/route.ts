@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   const schools = await prisma.school.findMany({
-    where: { photographerId: session.userId },
+    where: { organizationId: session.organizationId ?? undefined },
     include: {
       _count: { select: { students: true, events: true } },
     },
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       ...parsed.data,
       contactEmail: parsed.data.contactEmail || null,
       photographerId: session.userId,
+      organizationId: session.organizationId ?? undefined,
     },
   });
 

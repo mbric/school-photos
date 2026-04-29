@@ -13,9 +13,9 @@ const packageSchema = z.object({
   sortOrder: z.number().int().default(0),
 });
 
-async function verifySchoolAccess(schoolId: string, userId: string) {
+async function verifySchoolAccess(schoolId: string, organizationId: string | null) {
   return prisma.school.findFirst({
-    where: { id: schoolId, photographerId: userId },
+    where: { id: schoolId, organizationId: organizationId ?? undefined },
   });
 }
 
@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const school = await verifySchoolAccess(params.schoolId, session.userId);
+  const school = await verifySchoolAccess(params.schoolId, session.organizationId);
   if (!school) {
     return NextResponse.json({ error: "School not found" }, { status: 404 });
   }
@@ -50,7 +50,7 @@ export async function POST(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const school = await verifySchoolAccess(params.schoolId, session.userId);
+  const school = await verifySchoolAccess(params.schoolId, session.organizationId);
   if (!school) {
     return NextResponse.json({ error: "School not found" }, { status: 404 });
   }

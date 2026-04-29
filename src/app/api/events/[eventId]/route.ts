@@ -14,9 +14,9 @@ const updateSchema = z.object({
   matchingMethod: z.enum(["sequence", "qr", "filename"]).optional(),
 });
 
-async function getEventForUser(eventId: string, userId: string) {
+async function getEventForSession(eventId: string, organizationId: string | null) {
   return prisma.event.findFirst({
-    where: { id: eventId, photographerId: userId },
+    where: { id: eventId, school: { organizationId: organizationId ?? undefined } },
   });
 }
 
@@ -30,7 +30,7 @@ export async function GET(
   }
 
   const event = await prisma.event.findFirst({
-    where: { id: params.eventId, photographerId: session.userId },
+    where: { id: params.eventId, school: { organizationId: session.organizationId ?? undefined } },
     include: {
       school: {
         select: {
@@ -62,7 +62,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await getEventForUser(params.eventId, session.userId);
+  const existing = await getEventForSession(params.eventId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
@@ -107,7 +107,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const existing = await getEventForUser(params.eventId, session.userId);
+  const existing = await getEventForSession(params.eventId, session.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }

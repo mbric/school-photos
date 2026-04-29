@@ -19,13 +19,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Verify ownership through event
   const photo = await prisma.photo.findFirst({
-    where: { id: params.photoId },
-    include: { event: { select: { photographerId: true } } },
+    where: { id: params.photoId, event: { school: { organizationId: session.organizationId ?? undefined } } },
   });
 
-  if (!photo || photo.event.photographerId !== session.userId) {
+  if (!photo) {
     return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
 
@@ -66,11 +64,10 @@ export async function DELETE(
   }
 
   const photo = await prisma.photo.findFirst({
-    where: { id: params.photoId },
-    include: { event: { select: { photographerId: true } } },
+    where: { id: params.photoId, event: { school: { organizationId: session.organizationId ?? undefined } } },
   });
 
-  if (!photo || photo.event.photographerId !== session.userId) {
+  if (!photo) {
     return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
 

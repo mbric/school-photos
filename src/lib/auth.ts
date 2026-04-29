@@ -10,6 +10,7 @@ export interface JWTPayload {
   userId: string;
   email: string;
   role: string;
+  organizationId: string | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -63,13 +64,15 @@ export async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
 
-  const user = await prisma.user.findUnique({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user = await (prisma.user as any).findUnique({
     where: { id: session.userId },
     select: {
       id: true,
       email: true,
       name: true,
       role: true,
+      organizationId: true,
     },
   });
 
