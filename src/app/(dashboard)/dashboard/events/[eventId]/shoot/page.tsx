@@ -21,6 +21,7 @@ import {
   Clock,
   Undo2,
 } from "lucide-react";
+import { ProcessProgress } from "@/components/ProcessProgress";
 
 interface Student {
   id: string;
@@ -203,7 +204,7 @@ export default function ShootDayPage() {
       <h1 className="text-2xl font-bold mb-1">
         {eventInfo?.schoolName || "Shoot Day"}
       </h1>
-      <p className="text-sm text-muted-foreground mb-4">
+      <p className="text-sm text-muted-foreground mb-3">
         {eventInfo?.date
           ? new Date(eventInfo.date).toLocaleDateString("en-US", {
               weekday: "short",
@@ -212,6 +213,7 @@ export default function ShootDayPage() {
             })
           : ""}
       </p>
+      <ProcessProgress currentStepId="photograph" />
 
       {/* Progress Bar */}
       {stats && (

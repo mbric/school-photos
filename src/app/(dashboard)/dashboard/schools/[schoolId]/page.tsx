@@ -21,6 +21,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { ProcessProgress } from "@/components/ProcessProgress";
 
 interface Student {
   id: string;
@@ -132,7 +133,7 @@ export default function SchoolDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back to Schools
       </Link>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-bold">{school.name}</h1>
           <p className="text-muted-foreground">
@@ -140,6 +141,8 @@ export default function SchoolDetailPage() {
           </p>
         </div>
       </div>
+
+      <ProcessProgress currentStepId="roster-intake" />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-6">

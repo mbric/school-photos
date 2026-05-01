@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ProcessProgress } from "@/components/ProcessProgress";
 
 interface ProofLink {
   id: string;
@@ -133,6 +134,8 @@ export default function ProofsPage() {
           </div>
         </div>
       </div>
+
+      <ProcessProgress currentStepId="notify-parents" />
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { ProcessProgress } from "@/components/ProcessProgress";
 
 interface Student {
   id: string;
@@ -148,7 +149,7 @@ export default function PhotosPage() {
         <ArrowLeft className="h-4 w-4" /> Back to Event
       </Link>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <div>
           <h1 className="text-3xl font-bold">Photos</h1>
           <p className="text-muted-foreground">Upload and match photos to students</p>
@@ -158,6 +159,8 @@ export default function PhotosPage() {
           {matching ? "Matching..." : "Auto-Match"}
         </Button>
       </div>
+
+      <ProcessProgress currentStepId="upload-photos" />
 
       {/* Stats */}
       <div className="grid gap-3 grid-cols-4 mb-6">

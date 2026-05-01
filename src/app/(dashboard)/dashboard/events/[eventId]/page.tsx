@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ProcessProgress } from "@/components/ProcessProgress";
 
 interface ClassGroup {
   grade: string;
@@ -216,6 +217,7 @@ export default function EventDetailPage() {
             <span className="text-muted-foreground">{event.notes}</span>
           )}
         </div>
+        <ProcessProgress currentStepId="generate-flyers" />
         <div className="flex flex-wrap gap-2">
           <Link href={`/dashboard/events/${eventId}/shoot`}>
             <Button size="sm">
