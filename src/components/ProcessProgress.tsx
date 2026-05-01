@@ -1,6 +1,7 @@
 "use client";
 
-import { PHASES, getPhase, getStep } from "@/lib/process-flow";
+import { Fragment } from "react";
+import { PHASES, getPhase } from "@/lib/process-flow";
 
 interface Props {
   currentStepId: string;
@@ -9,51 +10,51 @@ interface Props {
 
 export function ProcessProgress({ currentStepId, phaseIds }: Props) {
   const currentPhase = getPhase(currentStepId);
-  const currentStep = getStep(currentStepId);
-
   if (!currentPhase) return null;
 
   const phases = phaseIds ? PHASES.filter((p) => phaseIds.includes(p.id)) : PHASES;
   const currentPhaseIndex = phases.findIndex((p) => p.id === currentPhase.id);
 
   return (
-    <div className="mb-4">
-      <div className="flex items-center gap-1 flex-wrap">
-        {phases.map((phase, i) => {
-          const isPast = i < currentPhaseIndex;
-          const isCurrent = i === currentPhaseIndex;
-          const isFuture = i > currentPhaseIndex;
+    <div className="flex w-full items-start">
+      {phases.map((phase, i) => {
+        const isPast = i < currentPhaseIndex;
+        const isCurrent = i === currentPhaseIndex;
+        const isLast = i === phases.length - 1;
 
-          return (
-            <div key={phase.id} className="flex items-center gap-1">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="text-xs font-medium"
-                  style={{
-                    color: isCurrent ? phase.color : isPast ? "#16a34a" : "#9ca3af",
-                  }}
-                >
-                  {isPast ? "✓" : isCurrent ? "●" : "○"}
-                </span>
-                <span
-                  className="text-xs font-medium"
-                  style={{
-                    color: isCurrent ? phase.color : isPast ? "#374151" : "#9ca3af",
-                  }}
-                >
-                  {phase.label}
-                </span>
+        return (
+          <Fragment key={phase.id}>
+            <div className="flex flex-col items-center shrink-0">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
+                  isCurrent
+                    ? "text-white border-transparent"
+                    : isPast
+                    ? "bg-green-500 border-green-500 text-white"
+                    : "border-gray-300 text-gray-400 bg-white"
+                }`}
+                style={isCurrent ? { backgroundColor: phase.color, borderColor: phase.color } : {}}
+              >
+                {isPast ? "✓" : i + 1}
               </div>
-              {i < phases.length - 1 && (
-                <span className="text-xs text-muted-foreground mx-0.5">→</span>
-              )}
+              <span
+                className={`text-xs font-medium mt-1.5 text-center whitespace-nowrap ${
+                  isCurrent ? "text-foreground" : isPast ? "text-muted-foreground" : "text-gray-400"
+                }`}
+              >
+                {phase.label}
+              </span>
             </div>
-          );
-        })}
-      </div>
-      {currentStep && (
-        <p className="text-xs text-muted-foreground mt-1 ml-0.5">{currentStep.label}</p>
-      )}
+            {!isLast && (
+              <div
+                className={`flex-1 h-0.5 mt-4 ${
+                  i < currentPhaseIndex ? "bg-green-400" : "bg-gray-200"
+                }`}
+              />
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

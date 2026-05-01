@@ -431,14 +431,16 @@ export default function EventLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* Process progress + Next Step card */}
+      {/* Next Step card */}
       {event && (
         <div className="mb-4">
-          <ProcessProgress
-            currentStepId={phaseStepId[eventPhase]}
-            phaseIds={["onboarding", "pre-shoot", "picture-day", "selection"]}
-          />
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="pb-4 mb-4 border-b border-amber-200">
+              <ProcessProgress
+                currentStepId={phaseStepId[eventPhase]}
+                phaseIds={["onboarding", "pre-shoot", "picture-day", "selection"]}
+              />
+            </div>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">
