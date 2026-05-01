@@ -6,8 +6,6 @@ import { getSession } from "@/lib/auth";
 const updateSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  grade: z.string().min(1).optional(),
-  teacher: z.string().optional(),
   studentId: z.string().optional(),
   parentEmail: z.string().email().optional().or(z.literal("")),
   familyId: z.string().nullable().optional(),

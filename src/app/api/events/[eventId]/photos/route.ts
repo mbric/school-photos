@@ -43,8 +43,6 @@ export async function GET(
           id: true,
           firstName: true,
           lastName: true,
-          grade: true,
-          teacher: true,
           studentId: true,
         },
       },
@@ -73,7 +71,7 @@ export async function GET(
   });
   const students = await prisma.student.findMany({
     where: { schoolId: eventData!.schoolId },
-    select: { id: true, firstName: true, lastName: true, grade: true, studentId: true },
+    select: { id: true, firstName: true, lastName: true, studentId: true },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 

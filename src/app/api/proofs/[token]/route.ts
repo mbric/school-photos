@@ -10,7 +10,7 @@ export async function GET(
     where: { token: params.token },
     include: {
       student: {
-        select: { id: true, firstName: true, lastName: true, grade: true, familyId: true },
+        select: { id: true, firstName: true, lastName: true, familyId: true },
       },
       event: {
         select: { id: true, schoolId: true, school: { select: { name: true } } },
@@ -44,7 +44,7 @@ export async function GET(
   if (proofLink.familyId) {
     const familyMembers = await prisma.student.findMany({
       where: { familyId: proofLink.familyId, schoolId: proofLink.event.schoolId },
-      select: { id: true, firstName: true, lastName: true, grade: true },
+      select: { id: true, firstName: true, lastName: true },
     });
     studentIds = familyMembers.map((s) => s.id);
   } else if (proofLink.studentId) {
@@ -60,7 +60,7 @@ export async function GET(
     },
     include: {
       student: {
-        select: { id: true, firstName: true, lastName: true, grade: true },
+        select: { id: true, firstName: true, lastName: true },
       },
     },
     orderBy: [{ studentId: "asc" }, { sequence: "asc" }],
@@ -76,7 +76,7 @@ export async function GET(
   }));
 
   // Group by student
-  const studentGroups: Record<string, { student: { firstName: string; lastName: string; grade: string }; photos: typeof photosWithUrls }> = {};
+  const studentGroups: Record<string, { student: { firstName: string; lastName: string }; photos: typeof photosWithUrls }> = {};
   for (const photo of photosWithUrls) {
     if (!photo.student) continue;
     if (!studentGroups[photo.studentId!]) {

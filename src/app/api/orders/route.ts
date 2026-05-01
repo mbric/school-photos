@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       items: {
         include: {
           package: { select: { name: true } },
-          student: { select: { firstName: true, lastName: true, grade: true } },
+          student: { select: { firstName: true, lastName: true } },
         },
       },
       _count: { select: { items: true } },

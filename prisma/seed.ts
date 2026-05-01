@@ -97,9 +97,9 @@ async function main() {
     { firstName: "Lucas", lastName: "Martinez", grade: "3", teacher: "Mrs. Davis", studentId: "LS-010", parentEmail: "martinez@email.com" },
   ];
 
-  for (const student of lincolnStudents) {
-    await prisma.student.create({
-      data: { ...student, schoolId: lincoln.id },
+  for (const { grade: _g, teacher: _t, ...studentData } of lincolnStudents) {
+    await db.student.create({
+      data: { ...studentData, schoolId: lincoln.id },
     });
   }
 
@@ -134,8 +134,20 @@ async function main() {
 
   const allStudents = await prisma.student.findMany({
     where: { schoolId: lincoln.id },
-    orderBy: [{ grade: "asc" }, { lastName: "asc" }],
+    orderBy: [{ lastName: "asc" }],
   });
+
+  // Create enrollments (grade/teacher per event)
+  const studentByStudentId = new Map(allStudents.map((s) => [s.studentId, s]));
+  for (const { grade, teacher, studentId } of lincolnStudents) {
+    const s = studentByStudentId.get(studentId);
+    if (s) {
+      await db.enrollment.create({
+        data: { studentId: s.id, eventId: event.id, grade, teacher: teacher ?? null },
+      });
+    }
+  }
+  console.log(`Created ${lincolnStudents.length} enrollments for Lincoln event`);
 
   let seq = 1;
   for (const student of allStudents) {
@@ -282,7 +294,7 @@ async function main() {
 
   // ─── Sample Orders ─────────────────────────────────
   // Paid card order
-  const order1 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: "SP-2026-0001",
       status: "paid",
@@ -301,7 +313,7 @@ async function main() {
   });
 
   // Paid card order for sibling
-  const order2 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: "SP-2026-0002",
       status: "paid",
@@ -320,7 +332,7 @@ async function main() {
   });
 
   // Venmo order awaiting payment
-  const order3 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: "SP-2026-0003",
       status: "awaiting_payment",
@@ -338,7 +350,7 @@ async function main() {
   });
 
   // Paper order entered by photographer
-  const order4 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: "SP-2026-0004",
       status: "paid",
@@ -358,7 +370,7 @@ async function main() {
   });
 
   // Sent to lab
-  const order5 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: "SP-2026-0005",
       status: "sent_to_lab",
@@ -387,14 +399,14 @@ async function main() {
     { firstName: "Alexander", lastName: "Harris", grade: "8", teacher: "Mr. Lee", studentId: "WS-005", parentEmail: "harris@email.com" },
   ];
 
-  for (const student of washStudents) {
-    await prisma.student.create({
-      data: { ...student, schoolId: washington.id },
+  for (const { grade: _g, teacher: _t, ...studentData } of washStudents) {
+    await db.student.create({
+      data: { ...studentData, schoolId: washington.id },
     });
   }
 
   // Future event for Washington
-  await prisma.event.create({
+  const washEvent = await prisma.event.create({
     data: {
       type: "initial",
       date: new Date("2026-05-01"),
@@ -405,6 +417,21 @@ async function main() {
       photographerId: megan.id,
     },
   });
+
+  // Create enrollments for Washington students
+  const washAllStudents = await prisma.student.findMany({
+    where: { schoolId: washington.id },
+    select: { id: true, studentId: true },
+  });
+  const washByStudentId = new Map(washAllStudents.map((s) => [s.studentId, s]));
+  for (const { grade, teacher, studentId } of washStudents) {
+    const s = washByStudentId.get(studentId);
+    if (s) {
+      await db.enrollment.create({
+        data: { studentId: s.id, eventId: washEvent.id, grade, teacher: teacher ?? null },
+      });
+    }
+  }
 
   console.log(`Created ${washStudents.length} students and 1 event for Washington Middle School`);
 

@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   BarChart3,
   Kanban,
+  GitFork,
   LogOut,
   Menu,
   X,
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/dashboard/orders", label: "Orders", icon: ShoppingCart },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/tasks", label: "Tasks", icon: Kanban },
+  { href: "/admin/process-flow", label: "Process Flow", icon: GitFork },
 ];
 
 export function Sidebar({ user }: SidebarProps) {

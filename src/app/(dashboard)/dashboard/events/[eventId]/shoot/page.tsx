@@ -843,11 +843,11 @@ function WalkUpForm({
     const nextNum = existingWU.length > 0 ? Math.max(...existingWU) + 1 : 1;
     const walkUpId = `WU-${String(nextNum).padStart(3, "0")}`;
 
-    // Create the student
+    // Create the student (identity only — no grade/teacher on master record)
     const studentRes = await fetch(`/api/schools/${schoolId}/students`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ firstName, lastName, grade, teacher, studentId: walkUpId }),
+      body: JSON.stringify({ firstName, lastName, studentId: walkUpId }),
     });
 
     if (!studentRes.ok) {
@@ -858,6 +858,13 @@ function WalkUpForm({
     }
 
     const { student } = await studentRes.json();
+
+    // Create enrollment for this event with grade/teacher
+    await fetch(`/api/events/${eventId}/enrollments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId: student.id, grade, teacher }),
+    });
 
     if (isQrMode) {
       // In QR mode: create check-in as pending, then show QR overlay

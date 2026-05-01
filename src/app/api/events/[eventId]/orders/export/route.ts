@@ -29,7 +29,7 @@ export async function GET(
         include: {
           package: { select: { name: true, contents: true } },
           student: {
-            select: { firstName: true, lastName: true, grade: true, teacher: true },
+            select: { firstName: true, lastName: true },
           },
           photo: { select: { filename: true } },
         },
@@ -51,8 +51,8 @@ export async function GET(
           order.status,
           item.student.lastName,
           item.student.firstName,
-          item.student.grade,
-          item.student.teacher || "",
+          "",
+          "",
           item.package.name,
           item.photo?.filename || "",
           item.quantity,

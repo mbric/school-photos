@@ -24,36 +24,38 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  // Get all students for this school
-  const students = await prisma.student.findMany({
-    where: { schoolId: event.schoolId },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      grade: true,
-      teacher: true,
-      checkIns: {
-        where: { eventId },
-        select: { status: true },
+  // Get all enrollments for this event (grade/teacher live on enrollment)
+  const enrollments = await (prisma as any).enrollment.findMany({
+    where: { eventId },
+    include: {
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          checkIns: {
+            where: { eventId },
+            select: { status: true },
+          },
+        },
       },
     },
-    orderBy: [{ grade: "asc" }, { lastName: "asc" }],
+    orderBy: [{ grade: "asc" }, { student: { lastName: "asc" } }],
   });
 
   // Filter to students who are absent, pending, or have no check-in
-  const missing = students
-    .filter((s) => {
-      const checkIn = s.checkIns[0];
+  const missing = enrollments
+    .filter((e: any) => {
+      const checkIn = e.student.checkIns[0];
       return !checkIn || checkIn.status === "absent" || checkIn.status === "pending";
     })
-    .map((s) => ({
-      id: s.id,
-      firstName: s.firstName,
-      lastName: s.lastName,
-      grade: s.grade,
-      teacher: s.teacher,
-      status: s.checkIns[0]?.status || "no check-in",
+    .map((e: any) => ({
+      id: e.student.id,
+      firstName: e.student.firstName,
+      lastName: e.student.lastName,
+      grade: e.grade as string,
+      teacher: e.teacher as string | null,
+      status: e.student.checkIns[0]?.status || "no check-in",
     }));
 
   return NextResponse.json({ students: missing });

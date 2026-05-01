@@ -32,16 +32,7 @@ export async function GET(
   const event = await prisma.event.findFirst({
     where: { id: params.eventId, school: { organizationId: session.organizationId ?? undefined } },
     include: {
-      school: {
-        select: {
-          id: true,
-          name: true,
-          students: {
-            select: { id: true, firstName: true, lastName: true, grade: true, teacher: true, studentId: true },
-            orderBy: [{ grade: "asc" }, { lastName: "asc" }],
-          },
-        },
-      },
+      school: { select: { id: true, name: true } },
       _count: { select: { checkIns: true, photos: true, orders: true } },
     },
   });
@@ -50,7 +41,26 @@ export async function GET(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ event });
+  const db = prisma as any;
+  const enrollments = await db.enrollment.findMany({
+    where: { eventId: params.eventId },
+    include: {
+      student: { select: { id: true, firstName: true, lastName: true, studentId: true } },
+    },
+    orderBy: [{ grade: "asc" }, { student: { lastName: "asc" } }],
+  });
+
+  const students = enrollments.map((e: any) => ({
+    id: e.student.id,
+    firstName: e.student.firstName,
+    lastName: e.student.lastName,
+    studentId: e.student.studentId,
+    grade: e.grade,
+    teacher: e.teacher,
+    enrollmentId: e.id,
+  }));
+
+  return NextResponse.json({ event: { ...event, school: { ...event.school, students } } });
 }
 
 export async function PATCH(

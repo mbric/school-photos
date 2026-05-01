@@ -62,8 +62,6 @@ model Student {
   id          String  @id @default(cuid())
   firstName   String
   lastName    String
-  grade       String
-  teacher     String?
   studentId   String?
   parentEmail String?
   familyId    String?
@@ -73,15 +71,32 @@ model Student {
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
+  enrollments  Enrollment[]
   checkIns     CheckIn[]
   checkInLogs  CheckInLog[]
   photos       Photo[]
   proofLinks   ProofLink[]
   orderItems   OrderItem[]
 
-  @@index([schoolId, grade, teacher])
+  @@index([schoolId])
   @@index([familyId])
   @@index([studentId, schoolId])
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  grade     String
+  teacher   String?
+  createdAt DateTime @default(now())
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, eventId])
+  @@index([eventId, grade, teacher])
+  @@index([studentId])
 }
 
 // ─── Picture Day Events ───────────────────────────────
@@ -104,6 +119,7 @@ model Event {
   photographerId String
   photographer   User   @relation(fields: [photographerId], references: [id])
 
+  enrollments  Enrollment[]
   checkIns     CheckIn[]
   checkInLogs  CheckInLog[]
   photos       Photo[]

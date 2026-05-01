@@ -59,11 +59,6 @@ export async function POST(
       continue;
     }
 
-    if (!s.grade) {
-      errors.push({ row: i + 1, message: "Missing grade" });
-      continue;
-    }
-
     if (s.studentId) {
       if (seenIds.has(s.studentId)) {
         errors.push({ row: i + 1, message: `Duplicate student ID: ${s.studentId}` });
@@ -94,8 +89,6 @@ export async function POST(
       data: valid.map((s) => ({
         firstName: s.firstName,
         lastName: s.lastName,
-        grade: s.grade,
-        teacher: s.teacher || null,
         studentId: s.studentId || null,
         parentEmail: s.parentEmail || null,
         schoolId: params.schoolId,

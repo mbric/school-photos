@@ -16,20 +16,7 @@ export async function GET(
     where: { id: params.eventId, school: { organizationId: session.organizationId ?? undefined } },
     include: {
       school: {
-        select: {
-          name: true,
-          students: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              grade: true,
-              teacher: true,
-              studentId: true,
-            },
-            orderBy: [{ grade: "asc" }, { teacher: "asc" }, { lastName: "asc" }],
-          },
-        },
+        select: { name: true },
       },
     },
   });
@@ -38,8 +25,37 @@ export async function GET(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
+  // Load enrollments for this event (carries grade/teacher)
+  const enrollments = await (prisma as any).enrollment.findMany({
+    where: { eventId: params.eventId },
+    include: {
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          studentId: true,
+        },
+      },
+    },
+    orderBy: [{ grade: "asc" }, { teacher: "asc" }, { student: { lastName: "asc" } }],
+  });
+
+  // Flatten into student-with-grade-teacher objects
+  let students: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    studentId: string | null;
+    grade: string;
+    teacher: string | null;
+  }[] = enrollments.map((e: any) => ({
+    ...e.student,
+    grade: e.grade as string,
+    teacher: e.teacher as string | null,
+  }));
+
   // If class order is set, sort students by it
-  let students = event.school.students;
   if (event.classOrder) {
     try {
       const order: { grade: string; teacher: string }[] = JSON.parse(event.classOrder);

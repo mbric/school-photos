@@ -28,7 +28,7 @@ async function verifyOrderAccess(orderId: string, organizationId: string | null)
       items: {
         include: {
           package: { select: { name: true, contents: true, digital: true } },
-          student: { select: { firstName: true, lastName: true, grade: true } },
+          student: { select: { firstName: true, lastName: true } },
           photo: { select: { id: true, filename: true, storagePath: true } },
         },
       },

@@ -26,8 +26,6 @@ interface Student {
   id: string;
   firstName: string;
   lastName: string;
-  grade: string;
-  teacher: string | null;
   studentId: string | null;
   parentEmail: string | null;
   familyId: string | null;
@@ -60,10 +58,7 @@ export default function SchoolDetailPage() {
 
   const [school, setSchool] = useState<School | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
-  const [filters, setFilters] = useState<{ grades: string[]; teachers: string[] }>({ grades: [], teachers: [] });
   const [search, setSearch] = useState("");
-  const [gradeFilter, setGradeFilter] = useState("");
-  const [teacherFilter, setTeacherFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -76,14 +71,11 @@ export default function SchoolDetailPage() {
   const fetchStudents = useCallback(async () => {
     const qs = new URLSearchParams();
     if (search) qs.set("search", search);
-    if (gradeFilter) qs.set("grade", gradeFilter);
-    if (teacherFilter) qs.set("teacher", teacherFilter);
 
     const res = await fetch(`/api/schools/${schoolId}/students?${qs}`);
     const data = await res.json();
     setStudents(data.students || []);
-    setFilters(data.filters || { grades: [], teachers: [] });
-  }, [schoolId, search, gradeFilter, teacherFilter]);
+  }, [schoolId, search]);
 
   const fetchSchool = useCallback(async () => {
     const res = await fetch(`/api/schools/${schoolId}`);
@@ -223,8 +215,8 @@ export default function SchoolDetailPage() {
             />
           )}
 
-          {/* Filters */}
-          <div className="flex gap-3 mb-4 flex-wrap">
+          {/* Search */}
+          <div className="flex gap-3 mb-4">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -234,30 +226,6 @@ export default function SchoolDetailPage() {
                 className="pl-9"
               />
             </div>
-            <select
-              value={gradeFilter}
-              onChange={(e) => setGradeFilter(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">All Grades</option>
-              {filters.grades.map((g) => (
-                <option key={g} value={g}>
-                  Grade {g}
-                </option>
-              ))}
-            </select>
-            <select
-              value={teacherFilter}
-              onChange={(e) => setTeacherFilter(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">All Teachers</option>
-              {filters.teachers.map((t) => (
-                <option key={t} value={t!}>
-                  {t}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Student Table */}
@@ -272,8 +240,6 @@ export default function SchoolDetailPage() {
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
-                    <th className="text-left px-4 py-3 font-medium">Grade</th>
-                    <th className="text-left px-4 py-3 font-medium">Teacher</th>
                     <th className="text-left px-4 py-3 font-medium">Student ID</th>
                     <th className="text-left px-4 py-3 font-medium">Parent Email</th>
                     <th className="text-left px-4 py-3 font-medium">Family</th>
@@ -285,10 +251,6 @@ export default function SchoolDetailPage() {
                     <tr key={student.id} className="border-t hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">
                         {student.lastName}, {student.firstName}
-                      </td>
-                      <td className="px-4 py-3">{student.grade}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {student.teacher || "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {student.studentId || "—"}
@@ -470,8 +432,6 @@ function StudentForm({
     const body = {
       firstName: fd.get("firstName") as string,
       lastName: fd.get("lastName") as string,
-      grade: fd.get("grade") as string,
-      teacher: fd.get("teacher") as string,
       studentId: fd.get("studentId") as string,
       parentEmail: fd.get("parentEmail") as string,
     };
@@ -524,18 +484,7 @@ function StudentForm({
               required
             />
           </div>
-          <div className="grid grid-cols-4 gap-3">
-            <Input
-              name="grade"
-              placeholder="Grade *"
-              defaultValue={student?.grade}
-              required
-            />
-            <Input
-              name="teacher"
-              placeholder="Teacher"
-              defaultValue={student?.teacher || ""}
-            />
+          <div className="grid grid-cols-2 gap-3">
             <Input
               name="studentId"
               placeholder="Student ID"
@@ -591,8 +540,6 @@ function CsvImport({
   const fields = [
     { key: "firstName", label: "First Name", required: true },
     { key: "lastName", label: "Last Name", required: true },
-    { key: "grade", label: "Grade", required: true },
-    { key: "teacher", label: "Teacher", required: false },
     { key: "studentId", label: "Student ID", required: false },
     { key: "parentEmail", label: "Parent Email", required: false },
   ];
@@ -634,8 +581,6 @@ function CsvImport({
     return csvData.map((row) => ({
       firstName: (row[mapping.firstName] || "").trim(),
       lastName: (row[mapping.lastName] || "").trim(),
-      grade: (row[mapping.grade] || "").trim(),
-      teacher: (row[mapping.teacher] || "").trim() || undefined,
       studentId: (row[mapping.studentId] || "").trim() || undefined,
       parentEmail: (row[mapping.parentEmail] || "").trim() || undefined,
     }));
@@ -712,7 +657,7 @@ function CsvImport({
               </Button>
               <Button
                 onClick={() => setStep("preview")}
-                disabled={!mapping.firstName || !mapping.lastName || !mapping.grade}
+                disabled={!mapping.firstName || !mapping.lastName}
               >
                 Preview
               </Button>
@@ -731,8 +676,6 @@ function CsvImport({
                   <tr>
                     <th className="text-left px-3 py-2">First Name</th>
                     <th className="text-left px-3 py-2">Last Name</th>
-                    <th className="text-left px-3 py-2">Grade</th>
-                    <th className="text-left px-3 py-2">Teacher</th>
                     <th className="text-left px-3 py-2">Student ID</th>
                     <th className="text-left px-3 py-2">Parent Email</th>
                   </tr>
@@ -744,8 +687,6 @@ function CsvImport({
                       <tr key={i} className="border-t">
                         <td className="px-3 py-2">{s.firstName}</td>
                         <td className="px-3 py-2">{s.lastName}</td>
-                        <td className="px-3 py-2">{s.grade}</td>
-                        <td className="px-3 py-2">{s.teacher || "—"}</td>
                         <td className="px-3 py-2">{s.studentId || "—"}</td>
                         <td className="px-3 py-2">{s.parentEmail || "—"}</td>
                       </tr>

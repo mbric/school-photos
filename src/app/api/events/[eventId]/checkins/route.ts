@@ -41,8 +41,6 @@ export async function GET(
           id: true,
           firstName: true,
           lastName: true,
-          grade: true,
-          teacher: true,
           studentId: true,
         },
       },
@@ -50,24 +48,27 @@ export async function GET(
     orderBy: { createdAt: "asc" },
   });
 
-  // Get all students for this school to find who doesn't have a check-in yet
-  const school = await prisma.event.findUnique({
-    where: { id: params.eventId },
-    select: { schoolId: true },
+  // Get all enrolled students for this event
+  const enrollments = await (prisma as any).enrollment.findMany({
+    where: { eventId: params.eventId },
+    include: {
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          studentId: true,
+        },
+      },
+    },
+    orderBy: [{ grade: "asc" }, { student: { lastName: "asc" } }],
   });
 
-  const allStudents = await prisma.student.findMany({
-    where: { schoolId: school!.schoolId },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      grade: true,
-      teacher: true,
-      studentId: true,
-    },
-    orderBy: [{ grade: "asc" }, { lastName: "asc" }],
-  });
+  const allStudents = enrollments.map((e: any) => ({
+    ...e.student,
+    grade: e.grade,
+    teacher: e.teacher,
+  }));
 
   // Compute progress stats
   const statusCounts = { pending: 0, photographed: 0, absent: 0, retake: 0 };
@@ -89,8 +90,6 @@ export async function GET(
           id: true,
           firstName: true,
           lastName: true,
-          grade: true,
-          teacher: true,
           studentId: true,
         },
       },
@@ -128,18 +127,14 @@ export async function POST(
 
   const body = await request.json();
 
-  // Handle bulk init - create pending check-ins for all students
+  // Handle bulk init - create pending check-ins for all enrolled students
   const bulkParsed = bulkInitSchema.safeParse(body);
   if (bulkParsed.success) {
-    const school = await prisma.event.findUnique({
-      where: { id: params.eventId },
-      select: { schoolId: true },
+    const enrollments = await (prisma as any).enrollment.findMany({
+      where: { eventId: params.eventId },
+      select: { studentId: true },
     });
-
-    const students = await prisma.student.findMany({
-      where: { schoolId: school!.schoolId },
-      select: { id: true },
-    });
+    const students: { id: string }[] = enrollments.map((e: any) => ({ id: e.studentId as string }));
 
     const existing = await prisma.checkIn.findMany({
       where: { eventId: params.eventId },
@@ -213,8 +208,6 @@ export async function POST(
           id: true,
           firstName: true,
           lastName: true,
-          grade: true,
-          teacher: true,
           studentId: true,
         },
       },

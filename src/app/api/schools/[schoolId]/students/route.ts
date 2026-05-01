@@ -6,8 +6,6 @@ import { getSession } from "@/lib/auth";
 const studentSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  grade: z.string().min(1, "Grade is required"),
-  teacher: z.string().optional(),
   studentId: z.string().optional(),
   parentEmail: z.string().email().optional().or(z.literal("")),
 });
@@ -33,13 +31,9 @@ export async function GET(
   }
 
   const { searchParams } = new URL(request.url);
-  const grade = searchParams.get("grade");
-  const teacher = searchParams.get("teacher");
   const search = searchParams.get("search");
 
   const where: Record<string, unknown> = { schoolId: params.schoolId };
-  if (grade) where.grade = grade;
-  if (teacher) where.teacher = teacher;
   if (search) {
     where.OR = [
       { firstName: { contains: search } },
@@ -50,31 +44,10 @@ export async function GET(
 
   const students = await prisma.student.findMany({
     where,
-    orderBy: [{ grade: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
-  // Get unique grades and teachers for filter dropdowns
-  const grades = await prisma.student.findMany({
-    where: { schoolId: params.schoolId },
-    select: { grade: true },
-    distinct: ["grade"],
-    orderBy: { grade: "asc" },
-  });
-
-  const teachers = await prisma.student.findMany({
-    where: { schoolId: params.schoolId, teacher: { not: null } },
-    select: { teacher: true },
-    distinct: ["teacher"],
-    orderBy: { teacher: "asc" },
-  });
-
-  return NextResponse.json({
-    students,
-    filters: {
-      grades: grades.map((g) => g.grade),
-      teachers: teachers.map((t) => t.teacher).filter(Boolean),
-    },
-  });
+  return NextResponse.json({ students });
 }
 
 export async function POST(
@@ -103,7 +76,9 @@ export async function POST(
 
   const student = await prisma.student.create({
     data: {
-      ...parsed.data,
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      studentId: parsed.data.studentId || null,
       parentEmail: parsed.data.parentEmail || null,
       schoolId: params.schoolId,
     },

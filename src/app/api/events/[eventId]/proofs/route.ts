@@ -36,7 +36,7 @@ export async function GET(
     where: { eventId: params.eventId },
     include: {
       student: {
-        select: { id: true, firstName: true, lastName: true, grade: true, parentEmail: true, familyId: true },
+        select: { id: true, firstName: true, lastName: true, parentEmail: true, familyId: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -52,7 +52,7 @@ export async function GET(
       schoolId: eventData!.schoolId,
       photos: { some: { eventId: params.eventId, matched: true } },
     },
-    select: { id: true, firstName: true, lastName: true, grade: true, parentEmail: true, familyId: true },
+    select: { id: true, firstName: true, lastName: true, parentEmail: true, familyId: true },
   });
 
   return NextResponse.json({
