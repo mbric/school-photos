@@ -312,7 +312,7 @@ export default function EventDetailPage() {
         <ProcessProgress currentStepId={phaseStepId[eventPhase]} />
 
         {/* Next Step card */}
-        <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Next step</p>
@@ -321,7 +321,7 @@ export default function EventDetailPage() {
             </div>
             <div className="shrink-0">{nextStep[eventPhase].button}</div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t border-amber-200">
             <span className="text-xs text-muted-foreground">All actions:</span>
             <button onClick={() => setShowImport(!showImport)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               <Upload className="h-3 w-3" /> Import Roster
