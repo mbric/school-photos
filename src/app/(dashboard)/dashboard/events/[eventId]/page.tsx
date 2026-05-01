@@ -665,24 +665,30 @@ function GroupBucket({
       <div className={`flex items-center gap-2 px-3 py-2 border-b ${isUnassigned ? "bg-muted/20" : "bg-muted/50"}`}>
         {isEditing ? (
           <>
-            <Input
-              value={editGrade}
-              onChange={(e) => onEditGrade?.(e.target.value)}
-              placeholder="Grade"
-              className="h-7 w-20 text-sm"
-              autoFocus
-            />
-            <span className="text-muted-foreground text-sm">—</span>
-            <Input
-              value={editTeacher}
-              onChange={(e) => onEditTeacher?.(e.target.value)}
-              placeholder="Teacher"
-              className="h-7 flex-1 text-sm"
-            />
-            <Button size="sm" className="h-7 px-2" onClick={onSaveEdit}>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs text-muted-foreground">Grade</span>
+              <input
+                value={editGrade}
+                onChange={(e) => onEditGrade?.(e.target.value)}
+                placeholder="4"
+                className="h-7 w-14 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                autoFocus
+              />
+            </div>
+            <span className="text-muted-foreground text-sm shrink-0">—</span>
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className="text-xs text-muted-foreground shrink-0">Teacher</span>
+              <input
+                value={editTeacher}
+                onChange={(e) => onEditTeacher?.(e.target.value)}
+                placeholder="Mrs. Smith"
+                className="h-7 flex-1 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <Button size="sm" className="h-7 px-2 shrink-0" onClick={onSaveEdit}>
               <Check className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onCancelEdit}>
+            <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0" onClick={onCancelEdit}>
               <X className="h-3.5 w-3.5" />
             </Button>
           </>
