@@ -171,6 +171,93 @@ export default function EventDetailPage() {
 
   const date = new Date(event.date);
 
+  const hasStudents = event.school.students.length > 0;
+  const hasCheckIns = event._count.checkIns > 0;
+  const hasPhotos = event._count.photos > 0;
+  const hasOrders = event._count.orders > 0;
+  const unassignedCount = event.school.students.filter(s => !s.grade && !s.teacher).length;
+  const allGrouped = hasStudents && unassignedCount === 0;
+
+  type EventPhase = "setup" | "pre-shoot-ungrouped" | "pre-shoot-ready" | "picture-day" | "post-shoot" | "selection";
+  const eventPhase: EventPhase =
+    !hasStudents     ? "setup" :
+    !hasCheckIns && !allGrouped ? "pre-shoot-ungrouped" :
+    !hasCheckIns     ? "pre-shoot-ready" :
+    !hasPhotos       ? "picture-day" :
+    !hasOrders       ? "post-shoot" :
+                       "selection";
+
+  const phaseStepId: Record<EventPhase, string> = {
+    "setup":               "roster-intake",
+    "pre-shoot-ungrouped": "generate-flyers",
+    "pre-shoot-ready":     "generate-flyers",
+    "picture-day":         "photograph",
+    "post-shoot":          "upload-photos",
+    "selection":           "notify-parents",
+  };
+
+  const nextStep: Record<EventPhase, { title: string; description: string; button: React.ReactNode }> = {
+    "setup": {
+      title: "Import your roster",
+      description: "Add students to this event before picture day.",
+      button: (
+        <Button onClick={() => setShowImport(true)}>
+          <Upload className="h-4 w-4 mr-2" /> Import Roster
+        </Button>
+      ),
+    },
+    "pre-shoot-ungrouped": {
+      title: "Group your roster by class",
+      description: `${unassignedCount} student${unassignedCount !== 1 ? "s" : ""} still unassigned. Drag them into classes in the roster below.`,
+      button: (
+        <div className="flex flex-col items-end gap-2">
+          <Button onClick={() => document.getElementById("roster-board")?.scrollIntoView({ behavior: "smooth" })}>
+            <Users className="h-4 w-4 mr-2" /> Assign Classes
+          </Button>
+          <Link href={`/dashboard/events/${eventId}/shoot`} className="text-xs text-muted-foreground hover:text-foreground">
+            Skip → Go to Shoot Day
+          </Link>
+        </div>
+      ),
+    },
+    "pre-shoot-ready": {
+      title: "You're ready for shoot day",
+      description: `All ${event.school.students.length} students are grouped. Print a shot list or QR sheets, then head to shoot day.`,
+      button: (
+        <Link href={`/dashboard/events/${eventId}/shoot`}>
+          <Button><Camera className="h-4 w-4 mr-2" /> Shoot Day</Button>
+        </Link>
+      ),
+    },
+    "picture-day": {
+      title: "Upload photos from the shoot",
+      description: `${event._count.checkIns} students checked in. Upload and match your photos.`,
+      button: (
+        <Link href={`/dashboard/events/${eventId}/photos`}>
+          <Button><Upload className="h-4 w-4 mr-2" /> Upload Photos</Button>
+        </Link>
+      ),
+    },
+    "post-shoot": {
+      title: "Send proof links to parents",
+      description: `${event._count.photos} photos uploaded. Notify parents their proofs are ready to view.`,
+      button: (
+        <Link href={`/dashboard/events/${eventId}/proofs`}>
+          <Button><Link2 className="h-4 w-4 mr-2" /> Send Proofs</Button>
+        </Link>
+      ),
+    },
+    "selection": {
+      title: "Orders are coming in",
+      description: `${event._count.orders} order${event._count.orders !== 1 ? "s" : ""} placed. Review and fulfill when ready.`,
+      button: (
+        <Link href="/dashboard/orders">
+          <Button><ShoppingCart className="h-4 w-4 mr-2" /> View Orders</Button>
+        </Link>
+      ),
+    },
+  };
+
   const studentsByClass = new Map<string, Student[]>();
   for (const s of event.school.students) {
     const key = gradeKey(s.grade, s.teacher);
@@ -222,39 +309,42 @@ export default function EventDetailPage() {
             <span className="text-muted-foreground">{event.notes}</span>
           )}
         </div>
-        <ProcessProgress currentStepId="generate-flyers" />
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/dashboard/events/${eventId}/shoot`}>
-            <Button size="sm">
-              <Camera className="h-3.5 w-3.5 mr-1.5" /> Shoot Day
-            </Button>
-          </Link>
-          <Link href={`/dashboard/events/${eventId}/photos`}>
-            <Button size="sm" variant="outline">
-              <Camera className="h-3.5 w-3.5 mr-1.5" /> Photos
-            </Button>
-          </Link>
-          <Link href={`/dashboard/events/${eventId}/proofs`}>
-            <Button size="sm" variant="outline">
-              <Link2 className="h-3.5 w-3.5 mr-1.5" /> Proofs
-            </Button>
-          </Link>
-          <Button size="sm" variant="outline" onClick={() => { setEditMatchingMethod(event.matchingMethod || "sequence"); setEditing(!editing); }}>
-            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowImport(!showImport)}>
-            <Upload className="h-3.5 w-3.5 mr-1.5" /> Import Roster
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setShowShotList(!showShotList)}>
-            <Printer className="h-3.5 w-3.5 mr-1.5" /> Shot List
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.open(`/api/events/${eventId}/qr-sheet`, "_blank")}
-          >
-            <QrCode className="h-3.5 w-3.5 mr-1.5" /> QR Sheets
-          </Button>
+        <ProcessProgress currentStepId={phaseStepId[eventPhase]} />
+
+        {/* Next Step card */}
+        <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Next step</p>
+              <p className="font-semibold">{nextStep[eventPhase].title}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{nextStep[eventPhase].description}</p>
+            </div>
+            <div className="shrink-0">{nextStep[eventPhase].button}</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t">
+            <span className="text-xs text-muted-foreground">All actions:</span>
+            <button onClick={() => setShowImport(!showImport)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Upload className="h-3 w-3" /> Import Roster
+            </button>
+            <button onClick={() => setShowShotList(!showShotList)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Printer className="h-3 w-3" /> Shot List
+            </button>
+            <button onClick={() => window.open(`/api/events/${eventId}/qr-sheet`, "_blank")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <QrCode className="h-3 w-3" /> QR Sheets
+            </button>
+            <Link href={`/dashboard/events/${eventId}/shoot`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Camera className="h-3 w-3" /> Shoot Day
+            </Link>
+            <Link href={`/dashboard/events/${eventId}/photos`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Camera className="h-3 w-3" /> Photos
+            </Link>
+            <Link href={`/dashboard/events/${eventId}/proofs`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Link2 className="h-3 w-3" /> Proofs
+            </Link>
+            <button onClick={() => { setEditMatchingMethod(event.matchingMethod || "sequence"); setEditing(!editing); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Pencil className="h-3 w-3" /> Edit Event
+            </button>
+          </div>
         </div>
       </div>
 
@@ -365,7 +455,7 @@ export default function EventDetailPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Class Shooting Order</CardTitle>
-            <Button size="sm" onClick={saveClassOrder} disabled={saving}>
+            <Button size="sm" variant="outline" onClick={saveClassOrder} disabled={saving}>
               <Save className="h-3.5 w-3.5 mr-1" />
               {saving ? "Saving..." : "Save Order"}
             </Button>
@@ -538,7 +628,7 @@ function RosterBoard({
   const unassigned = localStudents.filter((s) => !s.grade && !s.teacher);
 
   return (
-    <Card className="mb-6">
+    <Card id="roster-board" className="mb-6">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
