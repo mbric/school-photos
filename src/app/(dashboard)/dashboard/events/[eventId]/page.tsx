@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Papa from "papaparse";
@@ -11,7 +11,11 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  useDraggable,
+  DragOverlay,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -41,6 +45,7 @@ import {
   AlertTriangle,
   School,
   Check,
+  Plus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -348,14 +353,12 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* Enrolled Roster */}
-      {event.school.students.length > 0 && (
-        <EnrolledRoster
-          eventId={eventId}
-          students={event.school.students}
-          onRefresh={fetchEvent}
-        />
-      )}
+      {/* Roster Board */}
+      <RosterBoard
+        eventId={eventId}
+        students={event.school.students}
+        onRefresh={fetchEvent}
+      />
 
       {/* Class Order Editor */}
       <Card className="mb-6">
@@ -390,9 +393,15 @@ export default function EventDetailPage() {
   );
 }
 
-// ─── Enrolled Roster ──────────────────────────────────
+// ─── Roster Board (drag-drop) ─────────────────────────
 
-function EnrolledRoster({
+type GroupDef = { grade: string; teacher: string };
+
+function boardGroupId(grade: string, teacher: string | null) {
+  return `${grade}|${teacher ?? ""}`;
+}
+
+function RosterBoard({
   eventId,
   students,
   onRefresh,
@@ -401,201 +410,348 @@ function EnrolledRoster({
   students: Student[];
   onRefresh: () => void;
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [localStudents, setLocalStudents] = useState<Student[]>(students);
+  const [emptyGroups, setEmptyGroups] = useState<GroupDef[]>([]);
+  const [activeStudent, setActiveStudent] = useState<Student | null>(null);
+  const [addingGroup, setAddingGroup] = useState(false);
+  const [newGrade, setNewGrade] = useState("");
+  const [newTeacher, setNewTeacher] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGrade, setEditGrade] = useState("");
   const [editTeacher, setEditTeacher] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [groupByTeacher, setGroupByTeacher] = useState(true);
 
-  function startEdit(s: Student) {
-    setEditingId(s.id);
-    setEditGrade(s.grade || "");
-    setEditTeacher(s.teacher || "");
+  useEffect(() => { setLocalStudents(students); }, [students]);
+
+  const derivedGroups = useMemo(() => {
+    const seen = new Map<string, GroupDef>();
+    for (const s of localStudents) {
+      if (!s.grade && !s.teacher) continue;
+      const id = boardGroupId(s.grade, s.teacher);
+      if (!seen.has(id)) seen.set(id, { grade: s.grade, teacher: s.teacher ?? "" });
+    }
+    return Array.from(seen.values()).sort((a, b) => a.grade.localeCompare(b.grade));
+  }, [localStudents]);
+
+  const allGroups = useMemo(() => {
+    const derivedIds = new Set(derivedGroups.map((g) => boardGroupId(g.grade, g.teacher)));
+    const extras = emptyGroups.filter((g) => !derivedIds.has(boardGroupId(g.grade, g.teacher)));
+    return [...derivedGroups, ...extras];
+  }, [derivedGroups, emptyGroups]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragStart(e: DragStartEvent) {
+    const s = localStudents.find((s) => s.id === e.active.id);
+    if (s) setActiveStudent(s);
   }
 
-  async function saveEdit(studentId: string) {
-    setSaving(true);
-    await fetch(`/api/events/${eventId}/enrollments`, {
+  async function handleDragEnd(e: DragEndEvent) {
+    setActiveStudent(null);
+    const { active, over } = e;
+    if (!over) return;
+    const studentId = active.id as string;
+    const targetId = over.id as string;
+    const student = localStudents.find((s) => s.id === studentId);
+    if (!student) return;
+    if (boardGroupId(student.grade, student.teacher) === targetId) return;
+
+    let grade = "";
+    let teacher = "";
+    if (targetId !== "unassigned") {
+      [grade, teacher] = targetId.split("|");
+    }
+
+    setLocalStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, grade, teacher } : s))
+    );
+    fetch(`/api/events/${eventId}/enrollments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId, grade: editGrade, teacher: editTeacher }),
+      body: JSON.stringify({ studentId, grade, teacher }),
     });
-    setSaving(false);
-    setEditingId(null);
+  }
+
+  function addGroup() {
+    if (!newGrade && !newTeacher) return;
+    const id = boardGroupId(newGrade, newTeacher);
+    if (!allGroups.find((g) => boardGroupId(g.grade, g.teacher) === id)) {
+      setEmptyGroups((prev) => [...prev, { grade: newGrade, teacher: newTeacher }]);
+    }
+    setNewGrade("");
+    setNewTeacher("");
+    setAddingGroup(false);
+  }
+
+  async function handleSaveGroupEdit(oldGroup: GroupDef) {
+    const affected = localStudents.filter(
+      (s) => s.grade === oldGroup.grade && (s.teacher ?? "") === oldGroup.teacher
+    );
+    setLocalStudents((prev) =>
+      prev.map((s) =>
+        s.grade === oldGroup.grade && (s.teacher ?? "") === oldGroup.teacher
+          ? { ...s, grade: editGrade, teacher: editTeacher }
+          : s
+      )
+    );
+    setEditingGroupId(null);
+    await Promise.all(
+      affected.map((s) =>
+        fetch(`/api/events/${eventId}/enrollments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentId: s.id, grade: editGrade, teacher: editTeacher }),
+        })
+      )
+    );
     onRefresh();
   }
 
-  // Group students by teacher when toggle is on
-  const grouped = groupByTeacher
-    ? (() => {
-        const map = new Map<string, Student[]>();
-        for (const s of students) {
-          const key = `${s.grade || "—"}|${s.teacher || "Unassigned"}`;
-          if (!map.has(key)) map.set(key, []);
-          map.get(key)!.push(s);
-        }
-        return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-      })()
-    : null;
+  async function handleDeleteGroup(group: GroupDef) {
+    const affected = localStudents.filter(
+      (s) => s.grade === group.grade && (s.teacher ?? "") === group.teacher
+    );
+    setLocalStudents((prev) =>
+      prev.map((s) =>
+        s.grade === group.grade && (s.teacher ?? "") === group.teacher
+          ? { ...s, grade: "", teacher: null }
+          : s
+      )
+    );
+    setEmptyGroups((prev) =>
+      prev.filter((g) => !(g.grade === group.grade && g.teacher === group.teacher))
+    );
+    await Promise.all(
+      affected.map((s) =>
+        fetch(`/api/events/${eventId}/enrollments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentId: s.id, grade: "", teacher: "" }),
+        })
+      )
+    );
+    onRefresh();
+  }
+
+  const unassigned = localStudents.filter((s) => !s.grade && !s.teacher);
 
   return (
     <Card className="mb-6">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Event Roster</CardTitle>
-          <button
-            onClick={() => setGroupByTeacher(!groupByTeacher)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-              groupByTeacher
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-input text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            Group by Teacher
-          </button>
+          <div>
+            <CardTitle className="text-lg">Event Roster</CardTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {localStudents.length} students — drag to assign to a group
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setAddingGroup(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add Group
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {students.length} students enrolled. Click Edit to assign grade and teacher.
-        </p>
       </CardHeader>
-      <CardContent className="p-0">
-        {groupByTeacher && grouped ? (
-          grouped.map(([key, group]) => {
-            const [grade, teacher] = key.split("|");
-            return (
-              <div key={key}>
-                <div className="px-4 py-2 bg-muted/40 border-y text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {grade !== "—" ? `Grade ${grade}` : "No Grade"} — {teacher}
-                </div>
-                <RosterTable
-                  students={group}
-                  editingId={editingId}
-                  editGrade={editGrade}
-                  editTeacher={editTeacher}
-                  saving={saving}
-                  onStartEdit={startEdit}
-                  onCancelEdit={() => setEditingId(null)}
-                  onSaveEdit={saveEdit}
-                  onEditGrade={setEditGrade}
-                  onEditTeacher={setEditTeacher}
-                />
-              </div>
-            );
-          })
-        ) : (
-          <RosterTable
-            students={[...students].sort((a, b) => a.lastName.localeCompare(b.lastName))}
-            editingId={editingId}
-            editGrade={editGrade}
-            editTeacher={editTeacher}
-            saving={saving}
-            onStartEdit={startEdit}
-            onCancelEdit={() => setEditingId(null)}
-            onSaveEdit={saveEdit}
-            onEditGrade={setEditGrade}
-            onEditTeacher={setEditTeacher}
+      <CardContent className="space-y-3">
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <GroupBucket
+            id="unassigned"
+            label="Unassigned"
+            students={unassigned}
+            isUnassigned
           />
-        )}
+
+          {allGroups.map((group) => {
+            const id = boardGroupId(group.grade, group.teacher);
+            const gs = localStudents.filter(
+              (s) => s.grade === group.grade && (s.teacher ?? "") === group.teacher
+            );
+            const isEditing = editingGroupId === id;
+            return (
+              <GroupBucket
+                key={id}
+                id={id}
+                label={`Grade ${group.grade}${group.teacher ? ` — ${group.teacher}` : ""}`}
+                students={gs}
+                isEditing={isEditing}
+                editGrade={editGrade}
+                editTeacher={editTeacher}
+                onStartEdit={() => {
+                  setEditingGroupId(id);
+                  setEditGrade(group.grade);
+                  setEditTeacher(group.teacher);
+                }}
+                onSaveEdit={() => handleSaveGroupEdit(group)}
+                onCancelEdit={() => setEditingGroupId(null)}
+                onEditGrade={setEditGrade}
+                onEditTeacher={setEditTeacher}
+                onDelete={() => handleDeleteGroup(group)}
+              />
+            );
+          })}
+
+          {addingGroup && (
+            <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-3">
+              <Input
+                value={newGrade}
+                onChange={(e) => setNewGrade(e.target.value)}
+                placeholder="Grade"
+                className="h-8 w-20 text-sm"
+                autoFocus
+                onKeyDown={(e) => e.key === "Enter" && addGroup()}
+              />
+              <span className="text-muted-foreground">—</span>
+              <Input
+                value={newTeacher}
+                onChange={(e) => setNewTeacher(e.target.value)}
+                placeholder="Teacher name"
+                className="h-8 flex-1 text-sm"
+                onKeyDown={(e) => e.key === "Enter" && addGroup()}
+              />
+              <Button size="sm" className="h-8" onClick={addGroup}>Add</Button>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => setAddingGroup(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          <DragOverlay>
+            {activeStudent && (
+              <div className="flex items-center gap-1.5 rounded-md border bg-background shadow-md px-2.5 py-1.5 text-xs font-medium cursor-grabbing">
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                {activeStudent.lastName}, {activeStudent.firstName}
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       </CardContent>
     </Card>
   );
 }
 
-function RosterTable({
+function GroupBucket({
+  id,
+  label,
   students,
-  editingId,
-  editGrade,
-  editTeacher,
-  saving,
+  isUnassigned = false,
+  isEditing = false,
+  editGrade = "",
+  editTeacher = "",
   onStartEdit,
-  onCancelEdit,
   onSaveEdit,
+  onCancelEdit,
   onEditGrade,
   onEditTeacher,
+  onDelete,
 }: {
+  id: string;
+  label: string;
   students: Student[];
-  editingId: string | null;
-  editGrade: string;
-  editTeacher: string;
-  saving: boolean;
-  onStartEdit: (s: Student) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (studentId: string) => void;
-  onEditGrade: (v: string) => void;
-  onEditTeacher: (v: string) => void;
+  isUnassigned?: boolean;
+  isEditing?: boolean;
+  editGrade?: string;
+  editTeacher?: string;
+  onStartEdit?: () => void;
+  onSaveEdit?: () => void;
+  onCancelEdit?: () => void;
+  onEditGrade?: (v: string) => void;
+  onEditTeacher?: (v: string) => void;
+  onDelete?: () => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
   return (
-    <table className="w-full text-sm">
-      <thead className="sr-only">
-        <tr>
-          <th>Name</th>
-          <th>Grade</th>
-          <th>Teacher</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y">
-        {students.map((s) =>
-          editingId === s.id ? (
-            <tr key={s.id} className="bg-muted/30">
-              <td className="px-4 py-2 font-medium">
-                {s.lastName}, {s.firstName}
-              </td>
-              <td className="px-2 py-1.5">
-                <Input
-                  value={editGrade}
-                  onChange={(e) => onEditGrade(e.target.value)}
-                  placeholder="Grade"
-                  className="h-7 text-sm w-20"
-                  autoFocus
-                />
-              </td>
-              <td className="px-2 py-1.5">
-                <Input
-                  value={editTeacher}
-                  onChange={(e) => onEditTeacher(e.target.value)}
-                  placeholder="Teacher"
-                  className="h-7 text-sm w-36"
-                />
-              </td>
-              <td className="px-2 py-1.5 text-right">
-                <div className="flex gap-1 justify-end">
-                  <Button size="sm" className="h-7 px-2" onClick={() => onSaveEdit(s.id)} disabled={saving}>
-                    <Check className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onCancelEdit}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </td>
-            </tr>
-          ) : (
-            <tr key={s.id} className="hover:bg-muted/20">
-              <td className="px-4 py-2 font-medium">
-                {s.lastName}, {s.firstName}
-                {s.studentId && (
-                  <span className="ml-2 text-xs text-muted-foreground font-normal">{s.studentId}</span>
-                )}
-              </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {s.grade || <span className="italic text-muted-foreground/60">—</span>}
-              </td>
-              <td className="px-4 py-2 text-muted-foreground">
-                {s.teacher || <span className="italic text-muted-foreground/60">—</span>}
-              </td>
-              <td className="px-4 py-2 text-right">
+    <div className="rounded-lg border overflow-hidden">
+      <div className={`flex items-center gap-2 px-3 py-2 border-b ${isUnassigned ? "bg-muted/20" : "bg-muted/50"}`}>
+        {isEditing ? (
+          <>
+            <Input
+              value={editGrade}
+              onChange={(e) => onEditGrade?.(e.target.value)}
+              placeholder="Grade"
+              className="h-7 w-20 text-sm"
+              autoFocus
+            />
+            <span className="text-muted-foreground text-sm">—</span>
+            <Input
+              value={editTeacher}
+              onChange={(e) => onEditTeacher?.(e.target.value)}
+              placeholder="Teacher"
+              className="h-7 flex-1 text-sm"
+            />
+            <Button size="sm" className="h-7 px-2" onClick={onSaveEdit}>
+              <Check className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onCancelEdit}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        ) : (
+          <>
+            <span className="text-sm font-semibold flex-1">{label}</span>
+            <span className="text-xs text-muted-foreground tabular-nums">{students.length}</span>
+            {!isUnassigned && (
+              <>
                 <button
-                  onClick={() => onStartEdit(s)}
-                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted"
+                  onClick={onStartEdit}
+                  className="p-0.5 text-muted-foreground hover:text-foreground rounded"
                 >
-                  Edit
+                  <Pencil className="h-3 w-3" />
                 </button>
-              </td>
-            </tr>
-          )
+                <button
+                  onClick={onDelete}
+                  className="p-0.5 text-muted-foreground hover:text-destructive rounded"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </>
+            )}
+          </>
         )}
-      </tbody>
-    </table>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`min-h-[52px] p-2 flex flex-wrap gap-1.5 transition-colors ${
+          isOver ? "bg-primary/5 ring-1 ring-inset ring-primary" : "bg-background"
+        }`}
+      >
+        {students
+          .slice()
+          .sort((a, b) => a.lastName.localeCompare(b.lastName))
+          .map((s) => (
+            <DraggableStudentChip key={s.id} student={s} />
+          ))}
+        {students.length === 0 && (
+          <p className="text-xs text-muted-foreground/50 italic self-center px-1">
+            Drop students here
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DraggableStudentChip({ student }: { student: Student }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: student.id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
+      {...attributes}
+      {...listeners}
+      className={`flex items-center gap-1 rounded border bg-card px-2 py-1 text-xs select-none touch-none cursor-grab transition-colors ${
+        isDragging ? "opacity-30" : "hover:border-primary hover:bg-muted/40"
+      }`}
+    >
+      <GripVertical className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+      <span className="font-medium">{student.lastName}, {student.firstName}</span>
+      {student.studentId && (
+        <span className="text-muted-foreground">· {student.studentId}</span>
+      )}
+    </div>
   );
 }
 
