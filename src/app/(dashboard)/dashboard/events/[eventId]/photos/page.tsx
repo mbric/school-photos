@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useEvent } from "../event-context";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  ArrowLeft,
   Upload,
   Wand2,
   Image,
@@ -18,7 +17,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { ProcessProgress } from "@/components/ProcessProgress";
 
 interface Student {
   id: string;
@@ -54,6 +52,7 @@ interface Stats {
 export default function PhotosPage() {
   const params = useParams();
   const eventId = params.eventId as string;
+  const { refreshEvent } = useEvent();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -142,25 +141,12 @@ export default function PhotosPage() {
 
   return (
     <div>
-      <Link
-        href={`/dashboard/events/${eventId}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to Event
-      </Link>
-
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h1 className="text-3xl font-bold">Photos</h1>
-          <p className="text-muted-foreground">Upload and match photos to students</p>
-        </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={handleAutoMatch} disabled={matching || stats.unmatched === 0}>
           <Wand2 className="h-4 w-4 mr-2" />
           {matching ? "Matching..." : "Auto-Match"}
         </Button>
       </div>
-
-      <ProcessProgress currentStepId="upload-photos" />
 
       {/* Stats */}
       <div className="grid gap-3 grid-cols-4 mb-6">

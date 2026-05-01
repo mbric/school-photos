@@ -4,20 +4,22 @@ import { PHASES, getPhase, getStep } from "@/lib/process-flow";
 
 interface Props {
   currentStepId: string;
+  phaseIds?: string[];
 }
 
-export function ProcessProgress({ currentStepId }: Props) {
+export function ProcessProgress({ currentStepId, phaseIds }: Props) {
   const currentPhase = getPhase(currentStepId);
   const currentStep = getStep(currentStepId);
 
   if (!currentPhase) return null;
 
-  const currentPhaseIndex = PHASES.findIndex((p) => p.id === currentPhase.id);
+  const phases = phaseIds ? PHASES.filter((p) => phaseIds.includes(p.id)) : PHASES;
+  const currentPhaseIndex = phases.findIndex((p) => p.id === currentPhase.id);
 
   return (
     <div className="mb-4">
       <div className="flex items-center gap-1 flex-wrap">
-        {PHASES.map((phase, i) => {
+        {phases.map((phase, i) => {
           const isPast = i < currentPhaseIndex;
           const isCurrent = i === currentPhaseIndex;
           const isFuture = i > currentPhaseIndex;
@@ -42,7 +44,7 @@ export function ProcessProgress({ currentStepId }: Props) {
                   {phase.label}
                 </span>
               </div>
-              {i < PHASES.length - 1 && (
+              {i < phases.length - 1 && (
                 <span className="text-xs text-muted-foreground mx-0.5">→</span>
               )}
             </div>

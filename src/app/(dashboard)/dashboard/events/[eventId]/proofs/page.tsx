@@ -2,11 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  ArrowLeft,
   Link2,
   Eye,
   Mail,
@@ -118,24 +116,9 @@ export default function ProofsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href={`/dashboard/events/${eventId}`}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">Proof Links</h1>
-            <p className="text-sm text-muted-foreground">
-              {studentsWithPhotos.length} students with matched photos
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <ProcessProgress currentStepId="notify-parents" />
+      <p className="text-sm text-muted-foreground mb-2">
+        {studentsWithPhotos.length} students with matched photos
+      </p>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

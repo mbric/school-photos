@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useEvent } from "../event-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  ArrowLeft,
   Camera,
   UserX,
   RotateCcw,
@@ -20,8 +19,8 @@ import {
   X,
   Clock,
   Undo2,
+  Lock,
 } from "lucide-react";
-import { ProcessProgress } from "@/components/ProcessProgress";
 
 interface Student {
   id: string;
@@ -76,6 +75,7 @@ interface CheckInLogEntry {
 export default function ShootDayPage() {
   const params = useParams();
   const eventId = params.eventId as string;
+  const { event, refreshEvent } = useEvent();
 
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
@@ -86,29 +86,18 @@ export default function ShootDayPage() {
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showWalkUp, setShowWalkUp] = useState(false);
-  const [eventInfo, setEventInfo] = useState<{ schoolName: string; date: string; matchingMethod: string } | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithStatus | null>(null);
   const [showShootLog, setShowShootLog] = useState(true);
   const [shootLogEntries, setShootLogEntries] = useState<CheckInLogEntry[]>([]);
 
   const fetchData = useCallback(async () => {
-    const [checkInRes, eventRes] = await Promise.all([
-      fetch(`/api/events/${eventId}/checkins`),
-      fetch(`/api/events/${eventId}`),
-    ]);
-    const checkInData = await checkInRes.json();
-    const eventData = await eventRes.json();
-
-    setCheckIns(checkInData.checkIns || []);
-    setAllStudents(checkInData.allStudents || []);
-    setStats(checkInData.stats || null);
-    setShootLogEntries(checkInData.logs || []);
-    setInitialized(checkInData.checkIns?.length > 0);
-    setEventInfo({
-      schoolName: eventData.event?.school?.name || "",
-      date: eventData.event?.date || "",
-      matchingMethod: eventData.event?.matchingMethod || "sequence",
-    });
+    const res = await fetch(`/api/events/${eventId}/checkins`);
+    const data = await res.json();
+    setCheckIns(data.checkIns || []);
+    setAllStudents(data.allStudents || []);
+    setStats(data.stats || null);
+    setShootLogEntries(data.logs || []);
+    setInitialized(data.checkIns?.length > 0);
     setLoading(false);
   }, [eventId]);
 
@@ -123,7 +112,11 @@ export default function ShootDayPage() {
       body: JSON.stringify({ action: "init" }),
     });
     fetchData();
+    refreshEvent();
   }
+
+  const shootLocked =
+    event?.status === "post_shoot" || event?.status === "completed";
 
   async function updateStatus(studentId: string, status: string) {
     await fetch(`/api/events/${eventId}/checkins`, {
@@ -188,32 +181,12 @@ export default function ShootDayPage() {
     return `${mins}m elapsed`;
   })();
 
-  const isQrMode = eventInfo?.matchingMethod === "qr";
+  const isQrMode = event?.matchingMethod === "qr";
 
-  if (loading) return <p className="p-4 text-muted-foreground">Loading...</p>;
+  if (loading || !event) return <p className="p-4 text-muted-foreground">Loading...</p>;
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Link
-        href={`/dashboard/events/${eventId}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to Event
-      </Link>
-
-      <h1 className="text-2xl font-bold mb-1">
-        {eventInfo?.schoolName || "Shoot Day"}
-      </h1>
-      <p className="text-sm text-muted-foreground mb-3">
-        {eventInfo?.date
-          ? new Date(eventInfo.date).toLocaleDateString("en-US", {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-            })
-          : ""}
-      </p>
-      <ProcessProgress currentStepId="photograph" />
 
       {/* Progress Bar */}
       {stats && (
@@ -279,6 +252,14 @@ export default function ShootDayPage() {
             onToggle={() => setShowShootLog(!showShootLog)}
           />
 
+          {/* Locked notice */}
+          {shootLocked && (
+            <div className="flex items-center gap-2 rounded-md border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground mb-4">
+              <Lock className="h-3.5 w-3.5 shrink-0" />
+              Shoot day is complete. Check-ins are read-only. Use &ldquo;← Re-open Shoot Day&rdquo; in the Next Step bar to make changes.
+            </div>
+          )}
+
           {/* Action Bar */}
           <div className="flex gap-2 mb-4">
             <div className="relative flex-1">
@@ -290,22 +271,26 @@ export default function ShootDayPage() {
                 className="pl-9"
               />
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowScanner(!showScanner)}
-              title="Scan QR/Barcode"
-            >
-              <QrCode className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowWalkUp(!showWalkUp)}
-              title="Add Walk-up Student"
-            >
-              <UserPlus className="h-4 w-4" />
-            </Button>
+            {!shootLocked && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowScanner(!showScanner)}
+                  title="Scan QR/Barcode"
+                >
+                  <QrCode className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowWalkUp(!showWalkUp)}
+                  title="Add Walk-up Student"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Scanner */}
@@ -377,11 +362,12 @@ export default function ShootDayPage() {
                       <StudentCard
                         key={student.id}
                         student={student}
+                        locked={shootLocked}
                         onUpdateStatus={(status) =>
                           updateStatus(student.id, status)
                         }
                         onShowQR={
-                          isQrMode
+                          isQrMode && !shootLocked
                             ? (s) => setSelectedStudent(s)
                             : undefined
                         }
@@ -647,10 +633,12 @@ function ShootLog({
 
 function StudentCard({
   student,
+  locked,
   onUpdateStatus,
   onShowQR,
 }: {
   student: StudentWithStatus;
+  locked?: boolean;
   onUpdateStatus: (status: string) => void;
   onShowQR?: (student: StudentWithStatus) => void;
 }) {
@@ -686,54 +674,56 @@ function StudentCard({
           {student.studentId || "No ID"}
         </p>
       </div>
-      <div className="flex gap-1">
-        <button
-          onClick={() => onUpdateStatus("photographed")}
-          className={`p-2 rounded-md transition-colors ${
-            student.checkInStatus === "photographed"
-              ? "bg-green-500 text-white"
-              : "text-muted-foreground hover:bg-green-100 hover:text-green-700"
-          }`}
-          title="Photographed"
-        >
-          <Camera className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => onUpdateStatus("absent")}
-          className={`p-2 rounded-md transition-colors ${
-            student.checkInStatus === "absent"
-              ? "bg-red-400 text-white"
-              : "text-muted-foreground hover:bg-red-100 hover:text-red-600"
-          }`}
-          title="Absent"
-        >
-          <UserX className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => onUpdateStatus("retake")}
-          className={`p-2 rounded-md transition-colors ${
-            student.checkInStatus === "retake"
-              ? "bg-yellow-400 text-white"
-              : "text-muted-foreground hover:bg-yellow-100 hover:text-yellow-600"
-          }`}
-          title="Flag for Retake"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </button>
-        {student.checkInStatus !== "pending" && (
+      {!locked && (
+        <div className="flex gap-1">
           <button
-            onClick={() => {
-              if (window.confirm(`Reset ${student.firstName} ${student.lastName} to pending? This will remove them from the shoot log.`)) {
-                onUpdateStatus("pending");
-              }
-            }}
-            className="p-2 rounded-md text-muted-foreground hover:bg-orange-100 hover:text-orange-600"
-            title="Reset to Pending"
+            onClick={() => onUpdateStatus("photographed")}
+            className={`p-2 rounded-md transition-colors ${
+              student.checkInStatus === "photographed"
+                ? "bg-green-500 text-white"
+                : "text-muted-foreground hover:bg-green-100 hover:text-green-700"
+            }`}
+            title="Photographed"
           >
-            <Undo2 className="h-3.5 w-3.5" />
+            <Camera className="h-4 w-4" />
           </button>
-        )}
-      </div>
+          <button
+            onClick={() => onUpdateStatus("absent")}
+            className={`p-2 rounded-md transition-colors ${
+              student.checkInStatus === "absent"
+                ? "bg-red-400 text-white"
+                : "text-muted-foreground hover:bg-red-100 hover:text-red-600"
+            }`}
+            title="Absent"
+          >
+            <UserX className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onUpdateStatus("retake")}
+            className={`p-2 rounded-md transition-colors ${
+              student.checkInStatus === "retake"
+                ? "bg-yellow-400 text-white"
+                : "text-muted-foreground hover:bg-yellow-100 hover:text-yellow-600"
+            }`}
+            title="Flag for Retake"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+          {student.checkInStatus !== "pending" && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Reset ${student.firstName} ${student.lastName} to pending? This will remove them from the shoot log.`)) {
+                  onUpdateStatus("pending");
+                }
+              }}
+              className="p-2 rounded-md text-muted-foreground hover:bg-orange-100 hover:text-orange-600"
+              title="Reset to Pending"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

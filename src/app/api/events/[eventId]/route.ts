@@ -9,7 +9,7 @@ const updateSchema = z.object({
   startTime: z.string().optional(),
   notes: z.string().optional(),
   classOrder: z.array(z.object({ grade: z.string(), teacher: z.string() })).optional(),
-  status: z.enum(["scheduled", "in_progress", "completed"]).optional(),
+  status: z.enum(["scheduled", "in_progress", "post_shoot", "photos_ready", "completed"]).optional(),
   posesPerStudent: z.number().int().min(1).max(4).optional(),
   matchingMethod: z.enum(["sequence", "qr", "filename"]).optional(),
 });
