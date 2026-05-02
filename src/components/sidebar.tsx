@@ -10,6 +10,7 @@ import {
   BarChart3,
   Kanban,
   GitFork,
+  CircleDot,
   LogOut,
   Menu,
   X,
@@ -34,6 +35,7 @@ const navItems = [
   { href: "/dashboard/orders", label: "Orders", icon: ShoppingCart },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/tasks", label: "Tasks", icon: Kanban },
+  { href: "/admin/issues", label: "Issues", icon: CircleDot },
   { href: "/admin/process-flow", label: "Process Flow", icon: GitFork },
 ];
 
