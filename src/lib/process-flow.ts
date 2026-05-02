@@ -108,9 +108,16 @@ export const PHASES: Phase[] = [
         ],
         identifiers: ["student_token", "photo_id"],
       },
+    ],
+  },
+  {
+    id: "upload",
+    label: "Upload",
+    color: "#d97706",
+    steps: [
       {
         id: "upload-photos",
-        label: "Upload & process photos",
+        label: "Upload & match photos",
         descriptions: ["Batch upload, auto-match to students, generate proofs"],
         identifiers: ["photo_id → student_token"],
       },

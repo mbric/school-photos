@@ -437,7 +437,7 @@ export default function EventLayout({ children }: { children: React.ReactNode })
             <div className="pb-4 mb-4 border-b border-amber-200">
               <ProcessProgress
                 currentStepId={phaseStepId[eventPhase]}
-                phaseIds={["onboarding", "pre-shoot", "picture-day", "selection"]}
+                phaseIds={["onboarding", "pre-shoot", "picture-day", "upload", "selection"]}
               />
             </div>
             <div className="flex items-center justify-between gap-4">
