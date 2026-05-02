@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     where,
     include: {
       school: { select: { id: true, name: true } },
-      _count: { select: { checkIns: true, photos: true, orders: true } },
+      _count: { select: { checkIns: true, photos: true, orders: true, enrollments: true } },
     },
     orderBy: { date: "desc" },
   });

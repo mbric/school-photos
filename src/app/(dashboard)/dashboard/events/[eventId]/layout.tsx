@@ -382,32 +382,6 @@ export default function EventLayout({ children }: { children: React.ReactNode })
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold">{event.school.name}</h1>
-            <span
-              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                event.status === "scheduled"
-                  ? "bg-blue-100 text-blue-700"
-                  : event.status === "in_progress"
-                  ? "bg-yellow-100 text-yellow-700"
-                  : event.status === "post_shoot"
-                  ? "bg-purple-100 text-purple-700"
-                  : event.status === "photos_ready"
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "bg-green-100 text-green-700"
-              }`}
-            >
-              {event.status === "scheduled"
-                ? "scheduled"
-                : event.status === "in_progress"
-                ? "in progress"
-                : event.status === "post_shoot"
-                ? "uploading"
-                : event.status === "photos_ready"
-                ? "proofs"
-                : "completed"}
-            </span>
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {event.type}
-            </span>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
