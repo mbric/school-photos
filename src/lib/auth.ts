@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
+const JWT_SECRET = process.env.JWT_SECRET as string;
 const COOKIE_NAME = "sp_session";
 
 export interface JWTPayload {
@@ -64,8 +65,7 @@ export async function getCurrentUser() {
   const session = await getSession();
   if (!session) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user = await (prisma.user as any).findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.userId },
     select: {
       id: true,

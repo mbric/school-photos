@@ -49,7 +49,7 @@ export async function GET(
   });
 
   // Get all enrolled students for this event
-  const enrollments = await (prisma as any).enrollment.findMany({
+  const enrollments = await prisma.enrollment.findMany({
     where: { eventId: params.eventId },
     include: {
       student: {
@@ -64,7 +64,7 @@ export async function GET(
     orderBy: [{ grade: "asc" }, { student: { lastName: "asc" } }],
   });
 
-  const allStudents = enrollments.map((e: any) => ({
+  const allStudents = enrollments.map((e) => ({
     ...e.student,
     grade: e.grade,
     teacher: e.teacher,
@@ -130,11 +130,11 @@ export async function POST(
   // Handle bulk init - create pending check-ins for all enrolled students
   const bulkParsed = bulkInitSchema.safeParse(body);
   if (bulkParsed.success) {
-    const enrollments = await (prisma as any).enrollment.findMany({
+    const enrollments = await prisma.enrollment.findMany({
       where: { eventId: params.eventId },
       select: { studentId: true },
     });
-    const students: { id: string }[] = enrollments.map((e: any) => ({ id: e.studentId as string }));
+    const students: { id: string }[] = enrollments.map((e) => ({ id: e.studentId }));
 
     const existing = await prisma.checkIn.findMany({
       where: { eventId: params.eventId },

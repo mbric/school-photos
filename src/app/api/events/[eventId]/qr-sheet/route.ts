@@ -26,7 +26,7 @@ export async function GET(
   }
 
   // Load enrollments for this event (carries grade/teacher)
-  const enrollments = await (prisma as any).enrollment.findMany({
+  const enrollments = await prisma.enrollment.findMany({
     where: { eventId: params.eventId },
     include: {
       student: {

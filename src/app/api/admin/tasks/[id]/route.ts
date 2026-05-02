@@ -14,6 +14,7 @@ const updateSchema = z.object({
   complete: z.boolean().optional(),
 });
 
+// Generated Prisma types for Task are behind the current schema — same issue as tasks/route.ts.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tasks = prisma.task as any;
 

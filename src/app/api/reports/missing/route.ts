@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Get all enrollments for this event (grade/teacher live on enrollment)
-  const enrollments = await (prisma as any).enrollment.findMany({
+  const enrollments = await prisma.enrollment.findMany({
     where: { eventId },
     include: {
       student: {
@@ -45,16 +45,16 @@ export async function GET(request: NextRequest) {
 
   // Filter to students who are absent, pending, or have no check-in
   const missing = enrollments
-    .filter((e: any) => {
+    .filter((e) => {
       const checkIn = e.student.checkIns[0];
       return !checkIn || checkIn.status === "absent" || checkIn.status === "pending";
     })
-    .map((e: any) => ({
+    .map((e) => ({
       id: e.student.id,
       firstName: e.student.firstName,
       lastName: e.student.lastName,
-      grade: e.grade as string,
-      teacher: e.teacher as string | null,
+      grade: e.grade,
+      teacher: e.teacher,
       status: e.student.checkIns[0]?.status || "no check-in",
     }));
 

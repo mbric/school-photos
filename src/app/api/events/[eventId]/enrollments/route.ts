@@ -31,8 +31,7 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
 
-  const db = prisma as any;
-  const enrollment = await db.enrollment.upsert({
+  const enrollment = await prisma.enrollment.upsert({
     where: { studentId_eventId: { studentId: parsed.data.studentId, eventId: params.eventId } },
     create: {
       studentId: parsed.data.studentId,

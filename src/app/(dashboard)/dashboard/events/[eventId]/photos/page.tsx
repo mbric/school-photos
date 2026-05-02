@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useEvent } from "../event-context";
+import type { Student, Photo } from "@/lib/types";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,30 +18,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  grade: string;
-  studentId: string | null;
-}
-
-interface Photo {
-  id: string;
-  filename: string;
-  storagePath: string;
-  url: string;
-  thumbnailUrl: string | null;
-  sequence: number | null;
-  poseNumber: number | null;
-  isQrSeparator: boolean;
-  matched: boolean;
-  flagged: boolean;
-  flagReason: string | null;
-  studentId: string | null;
-  student: Student | null;
-}
 
 interface Stats {
   total: number;

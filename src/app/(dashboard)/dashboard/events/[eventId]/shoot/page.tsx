@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useEvent } from "../event-context";
+import type { Student, ClassGroup as BaseClassGroup, CheckIn, CheckInLogEntry } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,25 +23,6 @@ import {
   Lock,
 } from "lucide-react";
 
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  grade: string;
-  teacher: string | null;
-  studentId: string | null;
-}
-
-interface CheckIn {
-  id: string;
-  status: string;
-  sequence: number | null;
-  notes: string | null;
-  checkedInAt: string | null;
-  studentId: string;
-  student: Student;
-}
-
 interface Stats {
   total: number;
   pending: number;
@@ -51,9 +33,7 @@ interface Stats {
   remaining: number;
 }
 
-interface ClassGroup {
-  grade: string;
-  teacher: string;
+interface ClassGroup extends BaseClassGroup {
   students: StudentWithStatus[];
 }
 
@@ -62,14 +42,6 @@ interface StudentWithStatus extends Student {
   checkInId?: string;
   sequence?: number | null;
   checkedInAt?: string | null;
-}
-
-interface CheckInLogEntry {
-  id: string;
-  action: string;
-  sequence: number | null;
-  timestamp: string;
-  student: Student;
 }
 
 export default function ShootDayPage() {

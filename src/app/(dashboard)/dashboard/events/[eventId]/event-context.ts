@@ -1,21 +1,9 @@
 "use client";
 
 import { createContext, useContext, type Dispatch, type SetStateAction } from "react";
+import type { Student, ClassGroup } from "@/lib/types";
 
-export interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  grade: string;
-  teacher: string | null;
-  studentId: string | null;
-  enrollmentId: string;
-}
-
-export interface ClassGroup {
-  grade: string;
-  teacher: string;
-}
+export type { Student, ClassGroup };
 
 export interface EventDetail {
   id: string;

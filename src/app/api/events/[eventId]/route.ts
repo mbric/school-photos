@@ -41,8 +41,7 @@ export async function GET(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const db = prisma as any;
-  const enrollments = await db.enrollment.findMany({
+  const enrollments = await prisma.enrollment.findMany({
     where: { eventId: params.eventId },
     include: {
       student: { select: { id: true, firstName: true, lastName: true, studentId: true } },
@@ -50,7 +49,7 @@ export async function GET(
     orderBy: [{ grade: "asc" }, { student: { lastName: "asc" } }],
   });
 
-  const students = enrollments.map((e: any) => ({
+  const students = enrollments.map((e) => ({
     id: e.student.id,
     firstName: e.student.firstName,
     lastName: e.student.lastName,

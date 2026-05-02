@@ -17,8 +17,6 @@ const importSchema = z.object({
   confirm: z.boolean().default(false),
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = prisma as any;
 
 export async function POST(
   request: NextRequest,
@@ -49,15 +47,15 @@ export async function POST(
       select: { id: true },
     });
 
-    const existing = await db.enrollment.findMany({
+    const existing = await prisma.enrollment.findMany({
       where: { eventId: params.eventId },
       select: { studentId: true },
     });
-    const enrolledIds = new Set(existing.map((e: any) => e.studentId));
+    const enrolledIds = new Set(existing.map((e) => e.studentId));
     const toEnroll = allStudents.filter((s) => !enrolledIds.has(s.id));
 
     if (toEnroll.length > 0) {
-      await db.enrollment.createMany({
+      await prisma.enrollment.createMany({
         data: toEnroll.map((s) => ({
           studentId: s.id,
           eventId: params.eventId,
@@ -112,22 +110,30 @@ export async function POST(
 
       if (s.studentId) {
         // Match by student ID within this school
-        student = await db.student.upsert({
-          where: { studentId_schoolId: { studentId: s.studentId, schoolId: event.schoolId } },
-          create: {
-            firstName: s.firstName,
-            lastName: s.lastName,
-            studentId: s.studentId,
-            parentEmail: s.parentEmail || null,
-            schoolId: event.schoolId,
-          },
-          update: {
-            firstName: s.firstName,
-            lastName: s.lastName,
-            parentEmail: s.parentEmail || null,
-          },
+        const existing = await prisma.student.findFirst({
+          where: { studentId: s.studentId, schoolId: event.schoolId },
           select: { id: true },
         });
+        if (existing) {
+          await prisma.student.update({
+            where: { id: existing.id },
+            data: { firstName: s.firstName, lastName: s.lastName, parentEmail: s.parentEmail || null },
+          });
+          student = existing;
+          updated++;
+        } else {
+          student = await prisma.student.create({
+            data: {
+              firstName: s.firstName,
+              lastName: s.lastName,
+              studentId: s.studentId,
+              parentEmail: s.parentEmail || null,
+              schoolId: event.schoolId,
+            },
+            select: { id: true },
+          });
+          created++;
+        }
       } else {
         // Match by name within this school
         const existing = await prisma.student.findFirst({
@@ -162,7 +168,7 @@ export async function POST(
 
       // 2. Upsert enrollment (grade/teacher for this specific event)
       if (!student) throw new Error("Student record not found after upsert");
-      await db.enrollment.upsert({
+      await prisma.enrollment.upsert({
         where: { studentId_eventId: { studentId: student.id, eventId: params.eventId } },
         create: {
           studentId: student.id,

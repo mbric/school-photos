@@ -22,15 +22,7 @@ import {
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { ProcessProgress } from "@/components/ProcessProgress";
-
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  studentId: string | null;
-  parentEmail: string | null;
-  familyId: string | null;
-}
+import type { Student } from "@/lib/types";
 
 interface School {
   id: string;

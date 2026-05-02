@@ -13,7 +13,8 @@ const createSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
 });
 
-// Prisma v6 generic inference fights `include` + nested select — cast to any.
+// Generated Prisma types for Task are behind the current schema (completedAt,
+// sortOrder, assignee relation missing from input types). Cast until regenerated.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tasks = prisma.task as any;
 
@@ -28,20 +29,16 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const completedParam = searchParams.get("completed");
-
-  let where: Record<string, unknown> = {};
-  let orderBy: unknown[];
-  if (completedParam === "true") {
-    where = { completedAt: { not: null } };
-    orderBy = [{ completedAt: "desc" }];
-  } else {
-    where = { completedAt: null };
-    orderBy = [{ status: "asc" }, { sortOrder: "asc" }];
-  }
+  const showCompleted = searchParams.get("completed") === "true";
 
   const [taskList, users] = await Promise.all([
-    tasks.findMany({ where, orderBy, ...withAssignee }),
+    tasks.findMany({
+      where: showCompleted ? { completedAt: { not: null } } : { completedAt: null },
+      orderBy: showCompleted
+        ? [{ completedAt: "desc" }]
+        : [{ status: "asc" }, { sortOrder: "asc" }],
+      ...withAssignee,
+    }),
     prisma.user.findMany({
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
