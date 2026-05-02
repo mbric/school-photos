@@ -19,17 +19,13 @@ import {
   Link2,
   Package,
   DollarSign,
+  Calendar,
+  Camera,
+  Clock,
+  ShoppingCart,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
-
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  studentId: string | null;
-  parentEmail: string | null;
-  familyId: string | null;
-}
+import type { Student } from "@/lib/types";
 
 interface School {
   id: string;
@@ -38,6 +34,24 @@ interface School {
   contactName: string | null;
   paymentInstructions: string | null;
   _count: { students: number; events: number };
+}
+
+interface SchoolEventItem {
+  id: string;
+  type: string;
+  date: string;
+  startTime: string | null;
+  status: string;
+  _count: { checkIns: number; photos: number; orders: number; enrollments: number };
+}
+
+function phaseInfo(event: SchoolEventItem): { label: string; color: string } {
+  if (event.status === "completed")    return { label: "Completed",   color: "#16a34a" };
+  if (event.status === "photos_ready") return { label: "Selection",   color: "#7c3aed" };
+  if (event.status === "post_shoot")   return { label: "Upload",      color: "#d97706" };
+  if (event.status === "in_progress")  return { label: "Picture Day", color: "#ea580c" };
+  if (event._count.enrollments > 0)   return { label: "Pre-Shoot",   color: "#0d9488" };
+  return                                      { label: "Onboarding",  color: "#2563eb" };
 }
 
 interface PkgItem {
@@ -63,8 +77,9 @@ export default function SchoolDetailPage() {
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [activeTab, setActiveTab] = useState<"roster" | "packages">("roster");
+  const [activeTab, setActiveTab] = useState<"roster" | "packages" | "events">("roster");
   const [packages, setPackages] = useState<PkgItem[]>([]);
+  const [events, setEvents] = useState<SchoolEventItem[]>([]);
   const [showAddPackage, setShowAddPackage] = useState(false);
   const [editingPackage, setEditingPackage] = useState<PkgItem | null>(null);
 
@@ -95,9 +110,19 @@ export default function SchoolDetailPage() {
     }
   }, [schoolId]);
 
+  const fetchEvents = useCallback(async () => {
+    const res = await fetch(`/api/events?schoolId=${schoolId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setEvents(data.events || []);
+    }
+  }, [schoolId]);
+
   useEffect(() => {
-    Promise.all([fetchSchool(), fetchStudents(), fetchPackages()]).then(() => setLoading(false));
-  }, [fetchSchool, fetchStudents, fetchPackages]);
+    Promise.all([fetchSchool(), fetchStudents(), fetchPackages(), fetchEvents()]).then(() =>
+      setLoading(false)
+    );
+  }, [fetchSchool, fetchStudents, fetchPackages, fetchEvents]);
 
   async function handleDeleteStudent(id: string, name: string) {
     if (!confirm(`Delete ${name}?`)) return;
@@ -132,7 +157,7 @@ export default function SchoolDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back to Schools
       </Link>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-bold">{school.name}</h1>
           <p className="text-muted-foreground">
@@ -164,6 +189,22 @@ export default function SchoolDetailPage() {
         >
           <Package className="h-4 w-4 inline mr-1.5" />
           Packages & Pricing
+        </button>
+        <button
+          onClick={() => setActiveTab("events")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "events"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Calendar className="h-4 w-4 inline mr-1.5" />
+          Events
+          {events.length > 0 && (
+            <span className="ml-1.5 text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5">
+              {events.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -298,6 +339,69 @@ export default function SchoolDetailPage() {
         </>
       )}
 
+      {/* ─── Events Tab ─── */}
+      {activeTab === "events" && (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">
+              {events.length === 0 ? "No events yet." : `${events.length} event${events.length !== 1 ? "s" : ""}`}
+            </p>
+            <Link href="/dashboard/events">
+              <Button size="sm" variant="outline">
+                <Plus className="h-3.5 w-3.5 mr-1" /> New Event
+              </Button>
+            </Link>
+          </div>
+
+          {events.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No picture days scheduled yet.</p>
+            </div>
+          ) : (() => {
+            const now = new Date();
+            const upcoming = events
+              .filter((e) => new Date(e.date) >= now && e.status !== "completed")
+              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const past = events
+              .filter((e) => new Date(e.date) < now || e.status === "completed")
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            return (
+              <>
+                {upcoming.length > 0 && (
+                  <div className="mb-8">
+                    <h2 className="text-lg font-semibold mb-3">Upcoming</h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {upcoming.map((event) => {
+                        const phase = phaseInfo(event);
+                        const date = new Date(event.date);
+                        return (
+                          <SchoolEventCard key={event.id} event={event} phase={phase} date={date} isPast={false} />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {past.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-3 text-muted-foreground">Past</h2>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {past.map((event) => {
+                        const phase = phaseInfo(event);
+                        const date = new Date(event.date);
+                        return (
+                          <SchoolEventCard key={event.id} event={event} phase={phase} date={date} isPast={true} />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </>
+      )}
+
       {/* ─── Packages Tab ─── */}
       {activeTab === "packages" && (
         <>
@@ -404,6 +508,68 @@ export default function SchoolDetailPage() {
         </>
       )}
     </div>
+  );
+}
+
+// ─── School Event Card ────────────────────────────────
+
+function SchoolEventCard({
+  event,
+  phase,
+  date,
+  isPast,
+}: {
+  event: SchoolEventItem;
+  phase: { label: string; color: string };
+  date: Date;
+  isPast: boolean;
+}) {
+  return (
+    <Card className={isPast ? "opacity-70" : ""}>
+      <CardContent className="p-5">
+        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+          <span
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border"
+            style={{
+              color: phase.color,
+              backgroundColor: `${phase.color}15`,
+              borderColor: `${phase.color}30`,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: phase.color }} />
+            {phase.label}
+          </span>
+        </div>
+
+        <Link
+          href={`/dashboard/events/${event.id}`}
+          className="block text-lg font-semibold hover:text-primary transition-colors mb-1"
+        >
+          {date.toLocaleDateString("en-US", {
+            weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
+          })}
+        </Link>
+
+        {event.startTime && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+            <Clock className="h-3.5 w-3.5" />
+            {event.startTime}
+          </div>
+        )}
+
+        <div className="flex gap-4 pt-3 border-t text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Users className="h-3 w-3" /> {event._count.enrollments} enrolled
+          </span>
+          <span className="flex items-center gap-1">
+            <Camera className="h-3 w-3" /> {event._count.checkIns} check-ins
+          </span>
+          <span className="flex items-center gap-1">
+            <ShoppingCart className="h-3 w-3" /> {event._count.orders} orders
+          </span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

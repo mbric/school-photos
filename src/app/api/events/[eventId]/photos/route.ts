@@ -103,6 +103,17 @@ export async function POST(
     return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
   }
 
+  const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp", "image/bmp"];
+  const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
+  for (const file of files) {
+    if (!ALLOWED_MIMES.includes(file.type)) {
+      return NextResponse.json({ error: `${file.name}: only JPEG, PNG, WebP, and BMP are allowed` }, { status: 400 });
+    }
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: `${file.name}: file exceeds 50 MB limit` }, { status: 413 });
+    }
+  }
+
   const storage = getStorage();
 
   // Get current max sequence

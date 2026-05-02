@@ -9,7 +9,7 @@ const updateSchema = z.object({
   startTime: z.string().optional(),
   notes: z.string().optional(),
   classOrder: z.array(z.object({ grade: z.string(), teacher: z.string() })).optional(),
-  status: z.enum(["scheduled", "in_progress", "completed"]).optional(),
+  status: z.enum(["scheduled", "in_progress", "post_shoot", "photos_ready", "completed"]).optional(),
   posesPerStudent: z.number().int().min(1).max(4).optional(),
   matchingMethod: z.enum(["sequence", "qr", "filename"]).optional(),
 });
@@ -41,8 +41,7 @@ export async function GET(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const db = prisma as any;
-  const enrollments = await db.enrollment.findMany({
+  const enrollments = await prisma.enrollment.findMany({
     where: { eventId: params.eventId },
     include: {
       student: { select: { id: true, firstName: true, lastName: true, studentId: true } },
@@ -50,7 +49,7 @@ export async function GET(
     orderBy: [{ grade: "asc" }, { student: { lastName: "asc" } }],
   });
 
-  const students = enrollments.map((e: any) => ({
+  const students = enrollments.map((e) => ({
     id: e.student.id,
     firstName: e.student.firstName,
     lastName: e.student.lastName,

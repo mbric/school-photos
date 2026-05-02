@@ -25,7 +25,17 @@ interface EventItem {
   notes: string | null;
   status: string;
   school: { id: string; name: string };
-  _count: { checkIns: number; photos: number; orders: number };
+  _count: { checkIns: number; photos: number; orders: number; enrollments: number };
+}
+
+function phaseInfo(event: EventItem): { label: string; color: string } {
+  if (event.status === "completed")   return { label: "Completed",   color: "#16a34a" };
+  if (event.status === "photos_ready") return { label: "Selection",   color: "#7c3aed" };
+  if (event.status === "post_shoot")  return { label: "Upload",       color: "#d97706" };
+  if (event.status === "in_progress") return { label: "Picture Day",  color: "#ea580c" };
+  // scheduled — distinguish setup (no students) from pre-shoot (students enrolled)
+  if (event._count.enrollments > 0)  return { label: "Pre-Shoot",    color: "#0d9488" };
+  return                                     { label: "Onboarding",   color: "#2563eb" };
 }
 
 interface SchoolOption {
@@ -55,12 +65,12 @@ export default function EventsPage() {
     fetchEvents();
   }
 
-  const upcoming = events.filter(
-    (e) => new Date(e.date) >= new Date() && e.status !== "completed"
-  );
-  const past = events.filter(
-    (e) => new Date(e.date) < new Date() || e.status === "completed"
-  );
+  const upcoming = events
+    .filter((e) => new Date(e.date) >= new Date() && e.status !== "completed")
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const past = events
+    .filter((e) => new Date(e.date) < new Date() || e.status === "completed")
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div>
@@ -122,27 +132,26 @@ export default function EventsPage() {
 function EventCard({ event, onDelete }: { event: EventItem; onDelete: () => void }) {
   const date = new Date(event.date);
   const isPast = date < new Date() || event.status === "completed";
-
-  const statusColors: Record<string, string> = {
-    scheduled: "bg-blue-100 text-blue-700",
-    in_progress: "bg-yellow-100 text-yellow-700",
-    completed: "bg-green-100 text-green-700",
-  };
+  const phase = phaseInfo(event);
 
   return (
     <Card className={isPast ? "opacity-70" : ""}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
-          <div>
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span
-              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${
-                statusColors[event.status] || ""
-              }`}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border"
+              style={{
+                color: phase.color,
+                backgroundColor: `${phase.color}15`,
+                borderColor: `${phase.color}30`,
+              }}
             >
-              {event.status.replace("_", " ")}
-            </span>
-            <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full ml-1 bg-muted text-muted-foreground">
-              {event.type}
+              <span
+                className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: phase.color }}
+              />
+              {phase.label}
             </span>
           </div>
           <button
@@ -217,7 +226,6 @@ function EventForm({
     const fd = new FormData(e.currentTarget);
     const body = {
       schoolId: fd.get("schoolId") as string,
-      type: fd.get("type") as string,
       date: fd.get("date") as string,
       startTime: fd.get("startTime") as string,
       notes: fd.get("notes") as string,
@@ -255,32 +263,20 @@ function EventForm({
               {error}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>School *</Label>
-              <select
-                name="schoolId"
-                required
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Select a school</option>
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label>Type</Label>
-              <select
-                name="type"
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="initial">Initial</option>
-                <option value="retake">Retake</option>
-              </select>
-            </div>
+          <div className="space-y-1">
+            <Label>School *</Label>
+            <select
+              name="schoolId"
+              required
+              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Select a school</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

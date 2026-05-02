@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useEvent } from "../event-context";
+import type { Student, Photo } from "@/lib/types";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  ArrowLeft,
   Upload,
   Wand2,
   Image,
@@ -19,30 +19,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-interface Student {
-  id: string;
-  firstName: string;
-  lastName: string;
-  grade: string;
-  studentId: string | null;
-}
-
-interface Photo {
-  id: string;
-  filename: string;
-  storagePath: string;
-  url: string;
-  thumbnailUrl: string | null;
-  sequence: number | null;
-  poseNumber: number | null;
-  isQrSeparator: boolean;
-  matched: boolean;
-  flagged: boolean;
-  flagReason: string | null;
-  studentId: string | null;
-  student: Student | null;
-}
-
 interface Stats {
   total: number;
   matched: number;
@@ -53,6 +29,7 @@ interface Stats {
 export default function PhotosPage() {
   const params = useParams();
   const eventId = params.eventId as string;
+  const { refreshEvent } = useEvent();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -141,18 +118,7 @@ export default function PhotosPage() {
 
   return (
     <div>
-      <Link
-        href={`/dashboard/events/${eventId}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to Event
-      </Link>
-
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Photos</h1>
-          <p className="text-muted-foreground">Upload and match photos to students</p>
-        </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={handleAutoMatch} disabled={matching || stats.unmatched === 0}>
           <Wand2 className="h-4 w-4 mr-2" />
           {matching ? "Matching..." : "Auto-Match"}

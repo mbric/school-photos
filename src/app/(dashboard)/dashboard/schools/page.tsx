@@ -127,6 +127,17 @@ function SchoolCard({
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-5">
+        {school._count.events === 0 && (
+          <div className="mb-3">
+            <span
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border"
+              style={{ color: "#2563eb", backgroundColor: "#2563eb15", borderColor: "#2563eb30" }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: "#2563eb" }} />
+              Onboarding
+            </span>
+          </div>
+        )}
         <div className="flex items-start justify-between mb-3">
           <Link
             href={`/dashboard/schools/${school.id}`}

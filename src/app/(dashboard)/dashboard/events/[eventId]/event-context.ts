@@ -1,0 +1,38 @@
+"use client";
+
+import { createContext, useContext, type Dispatch, type SetStateAction } from "react";
+import type { Student, ClassGroup } from "@/lib/types";
+
+export type { Student, ClassGroup };
+
+export interface EventDetail {
+  id: string;
+  type: string;
+  date: string;
+  startTime: string | null;
+  notes: string | null;
+  classOrder: string | null;
+  status: string;
+  posesPerStudent: number;
+  matchingMethod: string;
+  school: { id: string; name: string; students: Student[] };
+  _count: { checkIns: number; photos: number; orders: number };
+}
+
+interface EventContextValue {
+  event: EventDetail | null;
+  classOrder: ClassGroup[];
+  setClassOrder: Dispatch<SetStateAction<ClassGroup[]>>;
+  refreshEvent: () => void;
+}
+
+export const EventContext = createContext<EventContextValue>({
+  event: null,
+  classOrder: [],
+  setClassOrder: () => {},
+  refreshEvent: () => {},
+});
+
+export function useEvent() {
+  return useContext(EventContext);
+}
