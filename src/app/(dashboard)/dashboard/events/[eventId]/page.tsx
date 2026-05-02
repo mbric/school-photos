@@ -37,9 +37,8 @@ import {
   Check,
   Plus,
   Lock,
+  UserPlus,
 } from "lucide-react";
-
-// ClassGroup, Student, EventDetail imported from event-context
 
 function gradeLabel(grade: string) {
   return grade ? `Grade ${grade}` : "Unassigned";
@@ -111,6 +110,12 @@ export default function EventDetailPage() {
         students={event.school.students}
         onRefresh={refreshEvent}
         locked={locked}
+        onGroupAdded={(grade, teacher) => {
+          const key = gradeKey(grade, teacher);
+          if (!classOrder.find((c) => gradeKey(c.grade, c.teacher) === key)) {
+            setClassOrder([...classOrder, { grade, teacher }]);
+          }
+        }}
       />
 
       {/* Class Shooting Order */}
@@ -126,7 +131,9 @@ export default function EventDetailPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {locked ? "Shooting order at time of picture day." : "Drag to reorder. This determines the order classes will be photographed."}
+            {locked
+              ? "Shooting order at time of picture day."
+              : "Drag to reorder. This determines the order classes will be photographed."}
           </p>
         </CardHeader>
         <CardContent>
@@ -142,9 +149,11 @@ export default function EventDetailPage() {
   );
 }
 
-// ─── Roster Board (drag-drop) ─────────────────────────
+// ─── Roster Board ─────────────────────────────────────
 
 type GroupDef = { grade: string; teacher: string };
+type PendingRemove = { studentId: string; name: string; message: string };
+type SearchResult = { id: string; firstName: string; lastName: string; studentId: string | null };
 
 function boardGroupId(grade: string, teacher: string | null) {
   return `${grade}|${teacher ?? ""}`;
@@ -155,21 +164,26 @@ function RosterBoard({
   students,
   onRefresh,
   locked = false,
+  onGroupAdded,
 }: {
   eventId: string;
   students: Student[];
   onRefresh: () => void;
   locked?: boolean;
+  onGroupAdded?: (grade: string, teacher: string) => void;
 }) {
   const [localStudents, setLocalStudents] = useState<Student[]>(students);
   const [emptyGroups, setEmptyGroups] = useState<GroupDef[]>([]);
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
   const [addingGroup, setAddingGroup] = useState(false);
+  const [addingStudent, setAddingStudent] = useState(false);
   const [newGrade, setNewGrade] = useState("");
   const [newTeacher, setNewTeacher] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGrade, setEditGrade] = useState("");
   const [editTeacher, setEditTeacher] = useState("");
+  const [pendingRemove, setPendingRemove] = useState<PendingRemove | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalStudents(students);
@@ -234,6 +248,7 @@ function RosterBoard({
     const id = boardGroupId(newGrade, newTeacher);
     if (!allGroups.find((g) => boardGroupId(g.grade, g.teacher) === id)) {
       setEmptyGroups((prev) => [...prev, { grade: newGrade, teacher: newTeacher }]);
+      onGroupAdded?.(newGrade, newTeacher);
     }
     setNewGrade("");
     setNewTeacher("");
@@ -290,6 +305,49 @@ function RosterBoard({
     onRefresh();
   }
 
+  async function removeStudent(studentId: string, name: string) {
+    setRemoveError(null);
+    const res = await fetch(`/api/events/${eventId}/enrollments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId }),
+    });
+    if (res.ok) {
+      setLocalStudents((prev) => prev.filter((s) => s.id !== studentId));
+      onRefresh();
+      return;
+    }
+    const data = await res.json();
+    if (data.hasOrders) {
+      setRemoveError(data.error);
+      return;
+    }
+    if (data.warning) {
+      setPendingRemove({ studentId, name, message: data.message });
+      return;
+    }
+    setRemoveError(data.error ?? "Failed to remove student.");
+  }
+
+  async function confirmRemove() {
+    if (!pendingRemove) return;
+    const { studentId } = pendingRemove;
+    const res = await fetch(`/api/events/${eventId}/enrollments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, confirm: true }),
+    });
+    if (res.ok) {
+      setPendingRemove(null);
+      setLocalStudents((prev) => prev.filter((s) => s.id !== studentId));
+      onRefresh();
+      return;
+    }
+    const data = await res.json();
+    setPendingRemove(null);
+    setRemoveError(data.error ?? "Failed to remove student.");
+  }
+
   const unassigned = localStudents.filter((s) => !s.grade && !s.teacher);
 
   return (
@@ -302,16 +360,74 @@ function RosterBoard({
               {localStudents.length} students{!locked && " — drag to assign to a group"}
             </p>
           </div>
-          {!locked && (
-            <Button size="sm" variant="outline" onClick={() => setAddingGroup(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> Add Class
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAddingStudent(true)}
+              disabled={addingStudent}
+            >
+              <UserPlus className="h-3.5 w-3.5 mr-1" /> Add Student
             </Button>
-          )}
+            {!locked && (
+              <Button size="sm" variant="outline" onClick={() => setAddingGroup(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add Class
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <DndContext sensors={locked ? [] : sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <GroupBucket id="unassigned" label="Unassigned" students={unassigned} isUnassigned locked={locked} />
+        {addingStudent && (
+          <AddStudentPanel
+            eventId={eventId}
+            onClose={() => setAddingStudent(false)}
+            onEnrolled={() => {
+              setAddingStudent(false);
+              onRefresh();
+            }}
+          />
+        )}
+
+        {pendingRemove && (
+          <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+            <p className="text-sm text-amber-800 dark:text-amber-200">{pendingRemove.message}</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="destructive" onClick={confirmRemove}>
+                Remove Anyway
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setPendingRemove(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {removeError && (
+          <div className="flex items-start justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+            <p className="text-sm text-destructive">{removeError}</p>
+            <button
+              onClick={() => setRemoveError(null)}
+              className="ml-2 text-destructive/60 hover:text-destructive shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        <DndContext
+          sensors={locked ? [] : sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <GroupBucket
+            id="unassigned"
+            label="Unassigned"
+            students={unassigned}
+            isUnassigned
+            locked={locked}
+            onRemoveStudent={removeStudent}
+          />
 
           {allGroups.map((group) => {
             const id = boardGroupId(group.grade, group.teacher);
@@ -339,6 +455,7 @@ function RosterBoard({
                 onEditGrade={setEditGrade}
                 onEditTeacher={setEditTeacher}
                 onDelete={() => handleDeleteGroup(group)}
+                onRemoveStudent={removeStudent}
               />
             );
           })}
@@ -410,6 +527,7 @@ function GroupBucket({
   onEditGrade,
   onEditTeacher,
   onDelete,
+  onRemoveStudent,
 }: {
   id: string;
   label: string;
@@ -425,6 +543,7 @@ function GroupBucket({
   onEditGrade?: (v: string) => void;
   onEditTeacher?: (v: string) => void;
   onDelete?: () => void;
+  onRemoveStudent?: (studentId: string, name: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -460,21 +579,14 @@ function GroupBucket({
             <Button size="sm" className="h-7 px-2 shrink-0" onClick={onSaveEdit}>
               <Check className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2 shrink-0"
-              onClick={onCancelEdit}
-            >
+            <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0" onClick={onCancelEdit}>
               <X className="h-3.5 w-3.5" />
             </Button>
           </>
         ) : (
           <>
             <span className="text-sm font-semibold flex-1">{label}</span>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {students.length}
-            </span>
+            <span className="text-xs text-muted-foreground tabular-nums">{students.length}</span>
             {!isUnassigned && !locked && (
               <>
                 <button
@@ -507,7 +619,11 @@ function GroupBucket({
             locked ? (
               <StudentChip key={s.id} student={s} />
             ) : (
-              <DraggableStudentChip key={s.id} student={s} />
+              <DraggableStudentChip
+                key={s.id}
+                student={s}
+                onRemove={() => onRemoveStudent?.(s.id, `${s.firstName} ${s.lastName}`)}
+              />
             )
           )}
         {students.length === 0 && !locked && (
@@ -520,7 +636,13 @@ function GroupBucket({
   );
 }
 
-function DraggableStudentChip({ student }: { student: Student }) {
+function DraggableStudentChip({
+  student,
+  onRemove,
+}: {
+  student: Student;
+  onRemove?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: student.id,
   });
@@ -546,6 +668,18 @@ function DraggableStudentChip({ student }: { student: Student }) {
       {student.studentId && (
         <span className="text-muted-foreground">· {student.studentId}</span>
       )}
+      {onRemove && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="ml-0.5 p-0.5 text-muted-foreground/50 hover:text-destructive rounded transition-colors"
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -559,6 +693,221 @@ function StudentChip({ student }: { student: Student }) {
       {student.studentId && (
         <span className="text-muted-foreground">· {student.studentId}</span>
       )}
+    </div>
+  );
+}
+
+// ─── Add Student Panel ────────────────────────────────
+
+function AddStudentPanel({
+  eventId,
+  onClose,
+  onEnrolled,
+}: {
+  eventId: string;
+  onClose: () => void;
+  onEnrolled: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [alreadyEnrolled, setAlreadyEnrolled] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [createFirstName, setCreateFirstName] = useState("");
+  const [createLastName, setCreateLastName] = useState("");
+  const [createStudentId, setCreateStudentId] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (search.length < 1) {
+      setResults([]);
+      setAlreadyEnrolled([]);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      const res = await fetch(
+        `/api/events/${eventId}/enrollments?search=${encodeURIComponent(search)}`
+      );
+      const data = await res.json();
+      setResults(data.students ?? []);
+      setAlreadyEnrolled(data.alreadyEnrolled ?? []);
+      setSearching(false);
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      setSearching(false);
+    };
+  }, [search, eventId]);
+
+  async function enrollStudent(studentId: string) {
+    setEnrolling(studentId);
+    const res = await fetch(`/api/events/${eventId}/enrollments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, grade: "", teacher: "" }),
+    });
+    setEnrolling(null);
+    if (res.ok) {
+      onEnrolled();
+    }
+  }
+
+  async function createAndEnroll() {
+    if (!createFirstName.trim() || !createLastName.trim()) {
+      setError("First name and last name are required.");
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    const res = await fetch(`/api/events/${eventId}/enrollments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create",
+        firstName: createFirstName.trim(),
+        lastName: createLastName.trim(),
+        studentId: createStudentId.trim() || undefined,
+      }),
+    });
+    const data = await res.json();
+    setCreating(false);
+    if (res.ok) {
+      onEnrolled();
+      return;
+    }
+    if (data.alreadyEnrolled) {
+      setError(data.error);
+      return;
+    }
+    if (data.exists) {
+      // Surface the existing student in search results
+      setSearch(`${data.existingStudent.firstName} ${data.existingStudent.lastName}`);
+      setError(
+        `Already in this school's roster — search results updated. Use "Enroll" to add them.`
+      );
+      return;
+    }
+    setError(data.error ?? "Failed to create student.");
+  }
+
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">Add Student</span>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Search school roster */}
+      <div>
+        <div className="relative">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search school roster by name or ID…"
+            autoFocus
+            className="h-8 w-full rounded-md border border-input bg-background pl-3 pr-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          {searching && (
+            <div className="absolute right-2.5 top-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          )}
+        </div>
+
+        {results.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {results.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between rounded-md border bg-background px-3 py-1.5"
+              >
+                <span className="text-sm">
+                  {s.lastName}, {s.firstName}
+                  {s.studentId && (
+                    <span className="text-muted-foreground ml-1.5">· {s.studentId}</span>
+                  )}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-xs"
+                  disabled={enrolling === s.id}
+                  onClick={() => enrollStudent(s.id)}
+                >
+                  {enrolling === s.id ? "Enrolling…" : "Enroll"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {alreadyEnrolled.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {alreadyEnrolled.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-1.5 opacity-60"
+              >
+                <span className="text-sm">
+                  {s.lastName}, {s.firstName}
+                  {s.studentId && (
+                    <span className="text-muted-foreground ml-1.5">· {s.studentId}</span>
+                  )}
+                </span>
+                <span className="text-xs text-muted-foreground">Already enrolled</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {search.length >= 1 &&
+          !searching &&
+          results.length === 0 &&
+          alreadyEnrolled.length === 0 && (
+            <p className="text-xs text-muted-foreground mt-2 px-1">
+              No matches in school roster.
+            </p>
+          )}
+      </div>
+
+      {/* Create new student */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 border-t border-border" />
+        <span className="text-xs text-muted-foreground shrink-0">or create new student</span>
+        <div className="flex-1 border-t border-border" />
+      </div>
+
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            value={createFirstName}
+            onChange={(e) => setCreateFirstName(e.target.value)}
+            placeholder="First name *"
+            className="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            onKeyDown={(e) => e.key === "Enter" && createAndEnroll()}
+          />
+          <input
+            value={createLastName}
+            onChange={(e) => setCreateLastName(e.target.value)}
+            placeholder="Last name *"
+            className="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            onKeyDown={(e) => e.key === "Enter" && createAndEnroll()}
+          />
+        </div>
+        <input
+          value={createStudentId}
+          onChange={(e) => setCreateStudentId(e.target.value)}
+          placeholder="Student ID (optional)"
+          className="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          onKeyDown={(e) => e.key === "Enter" && createAndEnroll()}
+        />
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <Button size="sm" className="w-full" onClick={createAndEnroll} disabled={creating}>
+          {creating ? "Creating…" : "Create & Enroll"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -611,7 +960,10 @@ function ClassOrderList({
           const key = gradeKey(group.grade, group.teacher);
           const count = studentsByClass.get(key)?.length || 0;
           return (
-            <div key={key} className="flex items-center gap-3 rounded-md border bg-background px-3 py-2">
+            <div
+              key={key}
+              className="flex items-center gap-3 rounded-md border bg-background px-3 py-2"
+            >
               <span className="text-sm font-medium w-6 text-muted-foreground">{index + 1}.</span>
               <span className="text-sm font-medium">{gradeLabel(group.grade)}</span>
               <span className="text-sm text-muted-foreground">— {group.teacher}</span>

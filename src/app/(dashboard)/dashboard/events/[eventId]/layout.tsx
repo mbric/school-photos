@@ -232,8 +232,7 @@ export default function EventLayout({ children }: { children: React.ReactNode })
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "in_progress" }),
     });
-    router.push(`${base}/shoot`);
-    // pathname change triggers fetchEvent automatically
+    fetchEvent();
   }
 
   const nextStep: Record<

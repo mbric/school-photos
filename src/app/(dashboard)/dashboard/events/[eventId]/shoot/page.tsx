@@ -47,7 +47,7 @@ interface StudentWithStatus extends Student {
 export default function ShootDayPage() {
   const params = useParams();
   const eventId = params.eventId as string;
-  const { event, refreshEvent } = useEvent();
+  const { event, classOrder, refreshEvent } = useEvent();
 
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
@@ -138,7 +138,21 @@ export default function ShootDayPage() {
       students: students.sort((a, b) => a.lastName.localeCompare(b.lastName)),
     });
   }
-  classGroups.sort((a, b) => a.grade.localeCompare(b.grade));
+  if (classOrder.length > 0) {
+    classGroups.sort((a, b) => {
+      const ai = classOrder.findIndex(
+        (c) => c.grade === a.grade && c.teacher === a.teacher
+      );
+      const bi = classOrder.findIndex(
+        (c) => c.grade === b.grade && c.teacher === b.teacher
+      );
+      const aPos = ai === -1 ? Infinity : ai;
+      const bPos = bi === -1 ? Infinity : bi;
+      return aPos - bPos;
+    });
+  } else {
+    classGroups.sort((a, b) => a.grade.localeCompare(b.grade));
+  }
 
   // Elapsed time calculation from log entries
   const elapsed = (() => {
